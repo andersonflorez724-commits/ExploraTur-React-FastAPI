@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="jungle" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0e2f1c"/><stop offset="100%" stop-color="#1d5a33"/></linearGradient>
+<linearGradient id="pool" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0c4a3a"/><stop offset="100%" stop-color="#062a24"/></linearGradient>
+<linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(240,253,250,0.95)"/><stop offset="100%" stop-color="rgba(153,246,228,0.8)"/></linearGradient>
+</defs>
+<rect width="1600" height="900" fill="url(#jungle)"/>
+<polygon points="0,0 620,0 620,900 0,900" fill="#123c22" opacity="1.0"/>
+<polygon points="620,0 760,0 760,900 620,900" fill="#0d2f1a" opacity="1.0"/>
+<path d="M560 -10 q 40 180 0 360 q -40 180 0 360 q 40 180 0 360"
+      fill="none" stroke="url(#water)" stroke-width="130" opacity="0.85" filter="url(#soft)"/>
+<path d="M620 -10 q 30 180 -10 360 q -40 180 10 360 q 40 180 -10 360"
+      fill="none" stroke="#eafcf8" stroke-width="46" opacity="0.8"/>
+<rect y="700" width="1600" height="200" fill="url(#pool)"/>
+<ellipse cx="800" cy="740" rx="560" ry="60" fill="#a7f3d0" opacity="0.35" filter="url(#soft)"/>
+<ellipse cx="700" cy="800" rx="420" ry="40" fill="#6ee7b7" opacity="0.25" filter="url(#soft)"/>
+<ellipse cx="520" cy="700" rx="160" ry="34" fill="#ffffff" opacity="0.5" filter="url(#soft)"/>
+
+</svg>

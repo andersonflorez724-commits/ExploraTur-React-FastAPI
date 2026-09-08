@@ -1,0 +1,1223 @@
+{
+  "info": {
+    "name": "ExploraTur API - Cuarto Avance React + FastAPI",
+    "description": "Colección completa de pruebas para la API ExploraTur.\n\nCubre: Autenticación JWT, CRUD de Usuarios, Productos, Servicios, Vuelos, rutas protegidas y respuestas de error.\n\nCredenciales de prueba:\n- Admin: admin@exploratur.com / Admin1@\n- Empleado: empleado@exploratur.com / Empleado1@\n\nRequerimientos del checklist cubiertos:\n- REQ-09: Registro de clientes\n- REQ-10: Inicio de sesión\n- REQ-11: Autenticación JWT\n- REQ-13: Protección de endpoints\n- REQ-14: Endpoints de la API\n- REQ-15: Métodos HTTP (GET, POST, PUT, PATCH, DELETE)\n- REQ-16: CRUD completo de usuarios\n- REQ-25: Documentación Swagger",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Autenticación",
+      "description": "Endpoints de login, registro y perfil (REQ-09, REQ-10)",
+      "item": [
+        {
+          "name": "POST /api/auth/register - Registro de cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status es 200 o 409', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
+                  "});",
+                  "",
+                  "pm.test('Respuesta tiene mensaje o error', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.mensaje || data.error).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('Si es 200, retorna usuario con campos requeridos', function () {",
+                  "    if (pm.response.code === 200) {",
+                  "        const data = pm.response.json();",
+                  "        pm.expect(data.usuario).to.have.all.keys('id', 'nombre', 'apellido', 'tipo_documento', 'numero_documento', 'direccion', 'telefono', 'email', 'rol', 'estado');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Perez\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"1099988877\",\n  \"direccion\": \"Calle 50 # 10-20, Medellín\",\n  \"telefono\": \"3101234567\",\n  \"email\": \"juan.perez@test.com\",\n  \"password\": \"Test1234@\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "REQ-09: Registro de un nuevo cliente. Verifica duplicados de correo y documento, hashea contraseña con bcrypt."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/usuarios/registro - Registro alias SENA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status es 200 o 409', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
+                  "});",
+                  "",
+                  "pm.test('Respuesta tiene mensaje o error', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.mensaje || data.error).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Martinez\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"1088877766\",\n  \"direccion\": \"Carrera 15 # 45-30, Bogotá\",\n  \"telefono\": \"3209876543\",\n  \"email\": \"ana.martinez@test.com\",\n  \"password\": \"Secure123@\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/usuarios/registro",
+              "host": ["{{base_url}}"],
+              "path": ["api", "usuarios", "registro"]
+            },
+            "description": "REQ-09: Alias de ruta especificado en el checklist del SENA."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/login - Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login exitoso - Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna token JWT', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('token');",
+                  "    pm.expect(data.token).to.be.a('string');",
+                  "    // Guardar token para siguientes requests",
+                  "    pm.collectionVariables.set('jwt_token', data.token);",
+                  "});",
+                  "",
+                  "pm.test('Retorna información del usuario con rol', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.usuario).to.have.property('rol', 'Administrador');",
+                  "    pm.expect(data.usuario).to.have.property('email', 'admin@exploratur.com');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@exploratur.com\",\n  \"password\": \"Admin1@\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "REQ-10: Login de administrador. Verifica credenciales, genera JWT y retorna token + usuario."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/login - Login Empleado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login exitoso - Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna token y rol Empleado', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('token');",
+                  "    pm.expect(data.usuario.rol).to.eql('Empleado');",
+                  "    pm.collectionVariables.set('empleado_token', data.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"empleado@exploratur.com\",\n  \"password\": \"Empleado1@\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login de empleado para probar permisos limitados."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/login - Credenciales incorrectas (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 401 - Credenciales inválidas', function () {",
+                  "    pm.expect(pm.response.code).to.eql(401);",
+                  "});",
+                  "",
+                  "pm.test('Retorna mensaje de error', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@exploratur.com\",\n  \"password\": \"WrongPassword123@\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "REQ-26: Prueba de respuesta de error con credenciales incorrectas."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/auth/me - Perfil autenticado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Perfil obtenido', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna datos del usuario', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.usuario).to.have.property('id');",
+                  "    pm.expect(data.usuario).to.have.property('email');",
+                  "    pm.expect(data.usuario).to.have.property('rol_nombre');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "REQ-11: Obtiene perfil del usuario autenticado mediante JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/auth/me - Sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 401 - No autenticado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "REQ-13: Prueba de acceso sin token (debe retornar 401)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. CRUD Usuarios (Admin)",
+      "description": "Gestión completa de usuarios - REQ-14, REQ-15, REQ-16",
+      "item": [
+        {
+          "name": "GET /api/users - Listar todos los usuarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna lista de usuarios', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('usuarios');",
+                  "    pm.expect(data.usuarios).to.be.an('array');",
+                  "    pm.expect(data).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-16: Consultar todos los usuarios (solo admin)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/users - Sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 401', function () {",
+                  "    pm.expect(pm.response.code).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-13: Endpoint protegido sin token."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/users/roles - Listar roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna 3 roles', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.roles).to.have.lengthOf(3);",
+                  "    const names = data.roles.map(r => r.nombre);",
+                  "    pm.expect(names).to.include.members(['Administrador', 'Empleado', 'Cliente']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/roles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "roles"]
+            },
+            "description": "REQ-12: Verificar los 3 roles del sistema."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/users - Crear usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Usuario creado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna usuario con ID', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.usuario).to.have.property('id');",
+                  "    pm.collectionVariables.set('new_user_id', data.usuario.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Pedro\",\n  \"apellido\": \"Garcia\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"1077766655\",\n  \"direccion\": \"Avenida 68 # 45-10, Bogotá\",\n  \"telefono\": \"3155554444\",\n  \"email\": \"pedro.garcia@test.com\",\n  \"password\": \"Pedro1234@\",\n  \"rol_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-16: Crear un nuevo usuario desde el panel de administrador."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/users - Duplicado (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 409 - Conflicto (duplicado)', function () {",
+                  "    pm.expect(pm.response.code).to.eql(409);",
+                  "});",
+                  "",
+                  "pm.test('Mensaje de error indica duplicado', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.error).to.include('existe');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Pedro\",\n  \"apellido\": \"Garcia\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"1077766655\",\n  \"direccion\": \"Avenida 68 # 45-10, Bogotá\",\n  \"telefono\": \"3155554444\",\n  \"email\": \"pedro.garcia@test.com\",\n  \"password\": \"Pedro1234@\",\n  \"rol_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-26: Prueba de error por usuario duplicado."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/users/:id - Editar usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Usuario actualizado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Datos actualizados correctamente', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.usuario.direccion).to.include('Nueva Dirección');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Pedro\",\n  \"apellido\": \"Garcia\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"1077766655\",\n  \"direccion\": \"Nueva Dirección # 123-45, Bogotá\",\n  \"telefono\": \"3155554444\",\n  \"email\": \"pedro.garcia@test.com\",\n  \"password\": \"\",\n  \"rol_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{new_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{new_user_id}}"]
+            },
+            "description": "REQ-16: Editar la información de un usuario existente."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/users/:id/estado - Cambiar estado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Estado cambiado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Estado es Inactivo', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.estado).to.eql('Inactivo');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Inactivo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{new_user_id}}/estado",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{new_user_id}}", "estado"]
+            },
+            "description": "REQ-16: Cambiar estado de usuario a Inactivo (sin eliminarlo)."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/users/:id/estado - Reactivar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Estado cambiado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Estado es Activo', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.estado).to.eql('Activo');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Activo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{new_user_id}}/estado",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{new_user_id}}", "estado"]
+            },
+            "description": "REQ-16: Reactivar usuario."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/users/:id - Eliminar usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Usuario eliminado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Mensaje de confirmación', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.mensaje).to.include('eliminado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/users/{{new_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{new_user_id}}"]
+            },
+            "description": "REQ-16: Eliminar usuario (solo admin)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. CRUD Productos",
+      "description": "Gestión de productos - REQ-14, REQ-15",
+      "item": [
+        {
+          "name": "GET /api/products - Listar productos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna lista de productos', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('productos');",
+                  "    pm.expect(data.productos).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products"]
+            },
+            "description": "REQ-14: Listar todos los productos."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/products - Crear producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Producto creado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna producto con ID', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.producto).to.have.property('id');",
+                  "    pm.collectionVariables.set('new_product_id', data.producto.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Paquete Playa Caribe\",\n  \"descripcion\": \"Vuelo + Hotel 5 noches all inclusive\",\n  \"precio\": 3500000,\n  \"categoria_id\": 3,\n  \"stock\": 10\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products"]
+            },
+            "description": "REQ-14: Crear un nuevo producto."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/products/:id - Editar producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Producto actualizado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Paquete Playa Caribe Premium\",\n  \"descripcion\": \"Vuelo + Hotel 5 noches all inclusive + Excursiones\",\n  \"precio\": 4200000,\n  \"categoria_id\": 3,\n  \"stock\": 8\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/products/{{new_product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products", "{{new_product_id}}"]
+            },
+            "description": "REQ-15: Actualizar producto existente."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/products/:id/estado - Cambiar estado producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Estado cambiado a Inactivo', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.estado).to.eql('Inactivo');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Inactivo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/products/{{new_product_id}}/estado",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products", "{{new_product_id}}", "estado"]
+            },
+            "description": "REQ-15: Cambiar estado del producto."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/products/:id - Eliminar producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Producto eliminado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/products/{{new_product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products", "{{new_product_id}}"]
+            },
+            "description": "REQ-15: Eliminar producto."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. CRUD Servicios",
+      "description": "Gestión de servicios - REQ-14, REQ-15",
+      "item": [
+        {
+          "name": "GET /api/services - Listar servicios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna lista de servicios', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('servicios');",
+                  "    pm.expect(data.servicios).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/services",
+              "host": ["{{base_url}}"],
+              "path": ["api", "services"]
+            },
+            "description": "REQ-14: Listar todos los servicios."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/services - Crear servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 - Servicio creado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Retorna servicio con ID', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.servicio).to.have.property('id');",
+                  "    pm.collectionVariables.set('new_service_id', data.servicio.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Guía turístico privado\",\n  \"descripcion\": \"Guía bilingüe para tours personalizados\",\n  \"precio\": 250000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/services",
+              "host": ["{{base_url}}"],
+              "path": ["api", "services"]
+            },
+            "description": "REQ-14: Crear un nuevo servicio."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/services/:id - Editar servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Guía turístico privado VIP\",\n  \"descripcion\": \"Guía bilingüe para tours personalizados premium\",\n  \"precio\": 350000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/services/{{new_service_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "services", "{{new_service_id}}"]
+            },
+            "description": "REQ-15: Actualizar servicio existente."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/services/:id - Eliminar servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/services/{{new_service_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "services", "{{new_service_id}}"]
+            },
+            "description": "REQ-15: Eliminar servicio."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Control de Acceso y Errores",
+      "description": "Pruebas de seguridad: roles, tokens, errores - REQ-11, REQ-12, REQ-13",
+      "item": [
+        {
+          "name": "GET /api/users - Empleado intenta listar usuarios (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 403 - Acceso denegado (solo admin)', function () {",
+                  "    pm.expect(pm.response.code).to.eql(403);",
+                  "});",
+                  "",
+                  "pm.test('Mensaje indica rol requerido', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.error).to.include('Administrador');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{empleado_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-12, REQ-13: Empleado no puede acceder a gestión de usuarios."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/users - Empleado intenta crear usuario (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 403 - Solo admin puede crear usuarios', function () {",
+                  "    pm.expect(pm.response.code).to.eql(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{empleado_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Test\",\n  \"apellido\": \"Empleado\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"99999999\",\n  \"direccion\": \"Test\",\n  \"telefono\": \"3000000000\",\n  \"email\": \"test@test.com\",\n  \"password\": \"Test1234@\",\n  \"rol_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-12: Empleado no tiene permiso para crear usuarios."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/users - Token inválido (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 401 - Token inválido', function () {",
+                  "    pm.expect(pm.response.code).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "token_falso_que_no_es_valido",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "REQ-11, REQ-13: Token JWT inválido debe retornar 401."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/register - Duplicado de correo (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 409 - Correo ya registrado', function () {",
+                  "    pm.expect(pm.response.code).to.eql(409);",
+                  "});",
+                  "",
+                  "pm.test('Mensaje indica correo duplicado', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.error).to.include('correo');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Test\",\n  \"apellido\": \"Duplicado\",\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"1011122233\",\n  \"direccion\": \"Calle Falsa 123\",\n  \"telefono\": \"3001234567\",\n  \"email\": \"admin@exploratur.com\",\n  \"password\": \"Test1234@\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "REQ-26: Error por correo electrónico duplicado."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/register - Datos inválidos (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Error 422 - Validación fallida', function () {",
+                  "    pm.expect(pm.response.code).to.eql(422);",
+                  "});",
+                  "",
+                  "pm.test('Retorna errores de validación', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"apellido\": \"\",\n  \"tipo_documento\": \"XX\",\n  \"numero_documento\": \"12\",\n  \"direccion\": \"\",\n  \"telefono\": \"abc\",\n  \"email\": \"no_es_correo\",\n  \"password\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "REQ-21, REQ-26: Validación de Pydantic con datos inválidos."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Documentación Swagger",
+      "description": "Verificación de documentación interactiva - REQ-25",
+      "item": [
+        {
+          "name": "GET /docs - Swagger UI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Swagger UI accesible - Status 200', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Contiene HTML de Swagger', function () {",
+                  "    pm.expect(pm.response.text()).to.include('swagger');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/docs",
+              "host": ["{{base_url}}"],
+              "path": ["docs"]
+            },
+            "description": "REQ-25: Verificar que Swagger UI está habilitado."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /openapi.json - Esquema OpenAPI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('OpenAPI schema accesible', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('openapi');",
+                  "    pm.expect(data).to.have.property('paths');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/openapi.json",
+              "host": ["{{base_url}}"],
+              "path": ["openapi.json"]
+            },
+            "description": "REQ-25: Verificar esquema OpenAPI de la API."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

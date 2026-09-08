@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="ExploraTour — Aplicación web desarrollada con React + Vite y React Router DOM. Carrusel de 10 imágenes con título y descripción."
+    />
+    <title>ExploraTour</title>
+    <script>
+      // Aplica el tema guardado antes de renderizar para evitar parpadeos
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('exploratur_theme')
+          var dark =
+            stored === 'dark' ||
+            (!stored &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
