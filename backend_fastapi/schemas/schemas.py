@@ -435,3 +435,255 @@ class FlightUpdateRequest(BaseModel):
     clase: Optional[str] = "Económica"
     asientos_disponibles: int = 50
     estado: Optional[str] = "Activo"
+
+
+# =====================================================
+# Ventas
+# =====================================================
+
+class DetalleVentaItem(BaseModel):
+    tipo_item: str
+    item_id: int
+    cantidad: int = 1
+    precio_unitario: float
+    descuento: float = 0
+
+    @field_validator("tipo_item")
+    @classmethod
+    def validate_tipo_item(cls, v):
+        if v not in ["Producto", "Servicio"]:
+            raise ValueError("El tipo de item debe ser 'Producto' o 'Servicio'.")
+        return v
+
+    @field_validator("cantidad")
+    @classmethod
+    def validate_cantidad(cls, v):
+        if v < 1:
+            raise ValueError("La cantidad debe ser al menos 1.")
+        return v
+
+    @field_validator("precio_unitario")
+    @classmethod
+    def validate_precio_unitario(cls, v):
+        if v < 0:
+            raise ValueError("El precio unitario no puede ser negativo.")
+        return v
+
+
+class VentaRequest(BaseModel):
+    cliente_id: Optional[int] = None
+    detalles: List[DetalleVentaItem]
+    descuento: float = 0
+    impuestos: float = 0
+    observaciones: Optional[str] = None
+
+    @field_validator("detalles")
+    @classmethod
+    def validate_detalles(cls, v):
+        if not v:
+            raise ValueError("Debe incluir al menos un item en la venta.")
+        return v
+
+
+class VentaResponse(BaseModel):
+    id: int
+    numero_venta: Optional[str] = None
+    usuario_id: int
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    subtotal: float
+    impuestos: float
+    descuento: float
+    total: float
+    estado: str
+    observaciones: Optional[str] = None
+    detalles: List[dict] = []
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VentaUpdateEstado(BaseModel):
+    estado: str
+
+    @field_validator("estado")
+    @classmethod
+    def validate_estado(cls, v):
+        if v not in ["Pendiente", "Confirmada", "Cancelada", "Completada"]:
+            raise ValueError("Estado no válido.")
+        return v
+
+
+# =====================================================
+# Facturas
+# =====================================================
+
+class FacturaRequest(BaseModel):
+    venta_id: int
+    cliente_id: Optional[int] = None
+    fecha_vencimiento: Optional[str] = None
+
+
+class FacturaResponse(BaseModel):
+    id: int
+    numero_factura: str
+    venta_id: int
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    subtotal: float
+    impuestos: float
+    descuento: float
+    total: float
+    estado: str
+    fecha_vencimiento: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FacturaUpdateEstado(BaseModel):
+    estado: str
+
+    @field_validator("estado")
+    @classmethod
+    def validate_estado(cls, v):
+        if v not in ["Pendiente", "Pagada", "Anulada", "Vencida"]:
+            raise ValueError("Estado no válido.")
+        return v
+
+
+# =====================================================
+# PQR
+# =====================================================
+
+class PQRRequest(BaseModel):
+    tipo: str = "Peticion"
+    asunto: str
+    descripcion: str
+
+    @field_validator("tipo")
+    @classmethod
+    def validate_tipo(cls, v):
+        if v not in ["Peticion", "Queja", "Reclamo", "Solicitud"]:
+            raise ValueError("Tipo de PQR no válido.")
+        return v
+
+    @field_validator("asunto")
+    @classmethod
+    def validate_asunto(cls, v):
+        if not v or not v.strip():
+            raise ValueError("El asunto es obligatorio.")
+        if len(v.strip()) < 5 or len(v.strip()) > 200:
+            raise ValueError("El asunto debe tener entre 5 y 200 caracteres.")
+        return v.strip()
+
+    @field_validator("descripcion")
+    @classmethod
+    def validate_descripcion(cls, v):
+        if not v or not v.strip():
+            raise ValueError("La descripción es obligatoria.")
+        if len(v.strip()) < 10:
+            raise ValueError("La descripción debe tener al menos 10 caracteres.")
+        return v.strip()
+
+
+class PQREsponse(BaseModel):
+    id: int
+    numero_pqr: str
+    cliente_id: int
+    cliente_nombre: Optional[str] = None
+    usuario_asignado_id: Optional[int] = None
+    usuario_asignado_nombre: Optional[str] = None
+    tipo: str
+    asunto: str
+    descripcion: str
+    estado: str
+    respuesta: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PQRUpdateEstado(BaseModel):
+    estado: str
+    respuesta: Optional[str] = None
+
+    @field_validator("estado")
+    @classmethod
+    def validate_estado(cls, v):
+        if v not in ["Pendiente", "En Proceso", "Respondida", "Cerrada"]:
+            raise ValueError("Estado no válido.")
+        return v
+
+
+class PQRUpdateAsignacion(BaseModel):
+    usuario_asignado_id: int
+
+
+# =====================================================
+# Chatbot
+# =====================================================
+
+class ChatbotRequest(BaseModel):
+    mensaje: str
+    session_id: Optional[str] = None
+
+    @field_validator("mensaje")
+    @classmethod
+    def validate_mensaje(cls, v):
+        if not v or not v.strip():
+            raise ValueError("El mensaje es obligatorio.")
+        return v.strip()
+
+
+class ChatbotResponse(BaseModel):
+    respuesta: str
+    session_id: str
+
+
+# =====================================================
+# Reportes
+# =====================================================
+
+class ReporteDiarioRequest(BaseModel):
+    fecha: str
+
+    @field_validator("fecha")
+    @classmethod
+    def validate_fecha(cls, v):
+        if not v:
+            raise ValueError("La fecha es obligatoria.")
+        try:
+            from datetime import datetime as dt
+            dt.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Formato de fecha inválido. Use YYYY-MM-DD.")
+        return v
+
+
+# =====================================================
+# Estadísticas / Dashboard
+# =====================================================
+
+class DashboardStats(BaseModel):
+    total_usuarios: int = 0
+    total_productos: int = 0
+    total_servicios: int = 0
+    total_ventas: int = 0
+    total_facturas: int = 0
+    total_pqr: int = 0
+    ventas_pendientes: int = 0
+    pqr_pendientes: int = 0
+    ingresos_totales: float = 0
+    facturacion_total: float = 0
+
+
+class VentasPorPeriodo(BaseModel):
+    fecha: str
+    cantidad: int
+    total: float

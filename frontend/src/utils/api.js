@@ -3,7 +3,7 @@
  * Maneja autenticación JWT, interceptores y errores.
  */
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 /**
  * Obtiene el token JWT almacenado.
@@ -275,6 +275,151 @@ export async function apiDeleteFlight(id) {
   return apiRequest(`/flights/${id}`, {
     method: 'DELETE',
   })
+}
+
+// =====================================================
+// Funciones de ventas
+// =====================================================
+
+export async function apiCreateSale(saleData) {
+  return apiRequest('/ventas', {
+    method: 'POST',
+    body: JSON.stringify(saleData),
+  })
+}
+
+export async function apiGetSales(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  return apiRequest(`/ventas${query ? `?${query}` : ''}`)
+}
+
+export async function apiGetSaleById(id) {
+  return apiRequest(`/ventas/${id}`)
+}
+
+export async function apiUpdateSaleStatus(id, estado) {
+  return apiRequest(`/ventas/${id}/estado`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado }),
+  })
+}
+
+export async function apiGetDailyReport(fecha) {
+  return apiRequest(`/ventas/reporte-diario?fecha=${fecha}`)
+}
+
+// =====================================================
+// Funciones de facturación
+// =====================================================
+
+export async function apiCreateInvoice(invoiceData) {
+  return apiRequest('/facturas', {
+    method: 'POST',
+    body: JSON.stringify(invoiceData),
+  })
+}
+
+export async function apiGetInvoices(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  return apiRequest(`/facturas${query ? `?${query}` : ''}`)
+}
+
+export async function apiGetInvoiceById(id) {
+  return apiRequest(`/facturas/${id}`)
+}
+
+export async function apiGetInvoiceByNumber(numero) {
+  return apiRequest(`/facturas/por-numero/${numero}`)
+}
+
+export async function apiUpdateInvoiceStatus(id, estado) {
+  return apiRequest(`/facturas/${id}/estado`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado }),
+  })
+}
+
+// =====================================================
+// Funciones de PQR
+// =====================================================
+
+export async function apiCreatePQR(pqrData) {
+  return apiRequest('/pqr', {
+    method: 'POST',
+    body: JSON.stringify(pqrData),
+  })
+}
+
+export async function apiGetPQRs(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  return apiRequest(`/pqr${query ? `?${query}` : ''}`)
+}
+
+export async function apiGetPQRById(id) {
+  return apiRequest(`/pqr/${id}`)
+}
+
+export async function apiUpdatePQRStatus(id, data) {
+  return apiRequest(`/pqr/${id}/estado`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function apiAssignPQR(id, usuario_asignado_id) {
+  return apiRequest(`/pqr/${id}/asignar`, {
+    method: 'PATCH',
+    body: JSON.stringify({ usuario_asignado_id }),
+  })
+}
+
+export async function apiGetPQRStats() {
+  return apiRequest('/pqr/estadisticas')
+}
+
+// =====================================================
+// Funciones de estadísticas / dashboard
+// =====================================================
+
+export async function apiGetDashboardStats() {
+  return apiRequest('/stats/dashboard')
+}
+
+export async function apiGetSalesByPeriod(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  return apiRequest(`/stats/ventas-por-periodo${query ? `?${query}` : ''}`)
+}
+
+export async function apiGetSalesByProduct() {
+  return apiRequest('/stats/ventas-por-producto')
+}
+
+export async function apiGetSalesByService() {
+  return apiRequest('/stats/ventas-por-servicio')
+}
+
+export async function apiGetMonthlySales(year) {
+  const query = year ? `?year=${year}` : ''
+  return apiRequest(`/stats/ventas-mensuales${query}`)
+}
+
+export async function apiGetTodaySummary() {
+  return apiRequest('/stats/resumen-ventas-hoy')
+}
+
+// =====================================================
+// Funciones de chatbot
+// =====================================================
+
+export async function apiChatbot(mensaje, session_id) {
+  return apiRequest('/chatbot', {
+    method: 'POST',
+    body: JSON.stringify({ mensaje, session_id }),
+  })
+}
+
+export async function apiGetChatHistory(sessionId) {
+  return apiRequest(`/chatbot/historial/${sessionId}`)
 }
 
 export { getToken, setToken, removeToken }

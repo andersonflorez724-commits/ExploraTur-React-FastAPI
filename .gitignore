@@ -27,3 +27,9 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+
+# Backups SQL
+backups/
+
+# Docker
+docker-compose.override.yml

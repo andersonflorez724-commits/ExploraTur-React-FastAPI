@@ -15,6 +15,7 @@ function CleanupLegacyStorage() {
 import Header from './components/Header'
 import Footer from './components/Footer'
 import WhatsAppButton from './components/ui/WhatsAppButton'
+import Chatbot from './components/Chatbot'
 import Index from './pages/Index'
 import QuienesSomos from './pages/QuienesSomos'
 import Contacto from './pages/Contacto'
@@ -44,11 +45,15 @@ function ScrollToTop() {
  * Incluye el botón flotante de WhatsApp.
  */
 function App() {
+  const { pathname } = useLocation()
+  const panelRoutes = ['/admin', '/empleado', '/cliente']
+  const showHeader = !panelRoutes.includes(pathname)
+
   return (
     <>
       <ScrollToTop />
       <CleanupLegacyStorage />
-      <Header />
+      {showHeader && <Header />}
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/quienes-somos" element={<QuienesSomos />} />
@@ -66,6 +71,8 @@ function App() {
       <Footer />
       {/* Botón flotante de WhatsApp */}
       <WhatsAppButton />
+      {/* Chatbot */}
+      <Chatbot />
     </>
   )
 }

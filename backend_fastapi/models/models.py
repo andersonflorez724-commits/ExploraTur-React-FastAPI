@@ -131,3 +131,104 @@ class Vuelo(Base):
     estado = Column(Enum("Activo", "Inactivo", name="estado_vuelo_enum"), nullable=False, default="Activo")
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+
+class Venta(Base):
+    __tablename__ = "ventas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    cliente_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    subtotal = Column(DECIMAL(12, 2), nullable=False, default=0)
+    impuestos = Column(DECIMAL(12, 2), nullable=False, default=0)
+    descuento = Column(DECIMAL(12, 2), nullable=False, default=0)
+    total = Column(DECIMAL(12, 2), nullable=False, default=0)
+    estado = Column(Enum("Pendiente", "Confirmada", "Cancelada", "Completada", name="estado_venta_enum"), nullable=False, default="Pendiente")
+    observaciones = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+    cliente = relationship("Usuario", foreign_keys=[cliente_id])
+    detalles = relationship("DetalleVenta", back_populates="venta", cascade="all, delete-orphan")
+
+
+class DetalleVenta(Base):
+    __tablename__ = "detalle_ventas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    venta_id = Column(Integer, ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False)
+    tipo_item = Column(Enum("Producto", "Servicio", name="tipo_item_enum"), nullable=False)
+    item_id = Column(Integer, nullable=False)
+    cantidad = Column(Integer, nullable=False, default=1)
+    precio_unitario = Column(DECIMAL(12, 2), nullable=False)
+    descuento = Column(DECIMAL(12, 2), nullable=False, default=0)
+    subtotal = Column(DECIMAL(12, 2), nullable=False, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+
+    venta = relationship("Venta", back_populates="detalles")
+
+
+class Factura(Base):
+    __tablename__ = "facturas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    numero_factura = Column(String(30), nullable=False, unique=True)
+    venta_id = Column(Integer, ForeignKey("ventas.id", ondelete="RESTRICT"), nullable=False)
+    cliente_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    subtotal = Column(DECIMAL(12, 2), nullable=False, default=0)
+    impuestos = Column(DECIMAL(12, 2), nullable=False, default=0)
+    descuento = Column(DECIMAL(12, 2), nullable=False, default=0)
+    total = Column(DECIMAL(12, 2), nullable=False, default=0)
+    estado = Column(Enum("Pendiente", "Pagada", "Anulada", "Vencida", name="estado_factura_enum"), nullable=False, default="Pendiente")
+    fecha_vencimiento = Column(Date, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    venta = relationship("Venta")
+    cliente = relationship("Usuario", foreign_keys=[cliente_id])
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+
+
+class PQR(Base):
+    __tablename__ = "pqr"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    numero_pqr = Column(String(30), nullable=False, unique=True)
+    cliente_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    usuario_asignado_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    tipo = Column(Enum("Peticion", "Queja", "Reclamo", "Solicitud", name="tipo_pqr_enum"), nullable=False, default="Peticion")
+    asunto = Column(String(200), nullable=False)
+    descripcion = Column(Text, nullable=False)
+    estado = Column(Enum("Pendiente", "En Proceso", "Respondida", "Cerrada", name="estado_pqr_enum"), nullable=False, default="Pendiente")
+    respuesta = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    cliente = relationship("Usuario", foreign_keys=[cliente_id])
+    usuario_asignado = relationship("Usuario", foreign_keys=[usuario_asignado_id])
+
+
+class Conversacion(Base):
+    __tablename__ = "conversaciones"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    session_id = Column(String(100), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    mensajes = relationship("Mensaje", back_populates="conversacion", cascade="all, delete-orphan")
+
+
+class Mensaje(Base):
+    __tablename__ = "mensajes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversacion_id = Column(Integer, ForeignKey("conversaciones.id", ondelete="CASCADE"), nullable=False)
+    rol = Column(Enum("user", "assistant", name="rol_mensaje_enum"), nullable=False)
+    contenido = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+
+    conversacion = relationship("Conversacion", back_populates="mensajes")

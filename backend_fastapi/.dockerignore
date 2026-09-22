@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+.env
+.env.local
+.venv
+venv
+*.sql
+backups/
+.git
+.gitignore
+README.md
+ExploraTur_API_Coleccion.postman_collection.json

@@ -7,14 +7,21 @@ import os
 import sys
 import io
 
-# Fix Windows console encoding for emoji characters
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Fix Windows console encoding for emoji characters.
+# write_through/line_buffering hacen que los mensajes de arranque (roles,
+# usuarios y vuelos de prueba) se vean al instante y no al cerrar el servidor.
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', write_through=True, line_buffering=True)
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', write_through=True, line_buffering=True)
 
 # Agregar el directorio actual al path para que los imports funcionen
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Cargar el .env ANTES de importar los módulos locales, para que las variables
+# (DB_*, JWT_SECRET, GEMINI_API_KEY...) estén disponibles en cuanto se importen.
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,13 +29,17 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from config.database import engine, SessionLocal, Base
 from models.models import Usuario, Rol
+from seed import seed_flights
 from routes.auth import router as auth_router, registro_router as registro_router
 from routes.users import router as users_router
 from routes.products import router as products_router
 from routes.services import router as services_router
 from routes.flights import router as flights_router
-
-load_dotenv()
+from routes.ventas import router as ventas_router
+from routes.facturas import router as facturas_router
+from routes.pqr import router as pqr_router
+from routes.stats import router as stats_router
+from routes.chatbot import router as chatbot_router
 
 port = int(os.getenv("PORT", "8000"))
 
@@ -62,6 +73,11 @@ app.include_router(users_router)
 app.include_router(products_router)
 app.include_router(services_router)
 app.include_router(flights_router)
+app.include_router(ventas_router)
+app.include_router(facturas_router)
+app.include_router(pqr_router)
+app.include_router(stats_router)
+app.include_router(chatbot_router)
 
 
 # =====================================================
@@ -117,7 +133,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # =====================================================
-# Ruta de prueba
+# Rutas
 # =====================================================
 @app.get("/api")
 def root():
@@ -132,6 +148,11 @@ def root():
             "products": "/api/products",
             "services": "/api/services",
             "flights": "/api/flights",
+            "ventas": "/api/ventas",
+            "facturas": "/api/facturas",
+            "pqr": "/api/pqr",
+            "stats": "/api/stats",
+            "chatbot": "/api/chatbot",
             "docs": "/docs",
         },
     }
@@ -249,6 +270,9 @@ def startup_event():
 
         # Crear usuarios de prueba
         seed_users()
+
+        # Crear vuelos de prueba si el catálogo está vacío
+        seed_flights()
 
         print(f"\n[OK] ExploraTur FastAPI server running at http://localhost:{port}")
         print(f"[OK] API available at http://localhost:{port}/api")

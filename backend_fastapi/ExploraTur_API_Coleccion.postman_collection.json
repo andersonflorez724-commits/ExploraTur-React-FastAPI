@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "ExploraTur API - Cuarto Avance React + FastAPI",
-    "description": "Colección completa de pruebas para la API ExploraTur.\n\nCubre: Autenticación JWT, CRUD de Usuarios, Productos, Servicios, Vuelos, rutas protegidas y respuestas de error.\n\nCredenciales de prueba:\n- Admin: admin@exploratur.com / Admin1@\n- Empleado: empleado@exploratur.com / Empleado1@\n\nRequerimientos del checklist cubiertos:\n- REQ-09: Registro de clientes\n- REQ-10: Inicio de sesión\n- REQ-11: Autenticación JWT\n- REQ-13: Protección de endpoints\n- REQ-14: Endpoints de la API\n- REQ-15: Métodos HTTP (GET, POST, PUT, PATCH, DELETE)\n- REQ-16: CRUD completo de usuarios\n- REQ-25: Documentación Swagger",
+    "name": "ExploraTur API - Quinto Avance React + FastAPI",
+    "description": "Colección completa de pruebas para la API ExploraTur - Quinto Avance.\n\nCubre: Autenticación JWT, CRUD de Usuarios, Productos, Servicios, Vuelos, Ventas, Facturas, PQR, Estadísticas, Chatbot IA y rutas protegidas.\n\nCredenciales de prueba:\n- Admin: admin@exploratur.com / Admin1@\n- Empleado: empleado@exploratur.com / Empleado1@\n\nRequerimientos del checklist cubiertos:\n- REQ-09: Registro de clientes\n- REQ-10: Inicio de sesión\n- REQ-11: Autenticación JWT\n- REQ-13: Protección de endpoints\n- REQ-14: Endpoints de la API\n- REQ-15: Métodos HTTP (GET, POST, PUT, PATCH, DELETE)\n- REQ-16: CRUD completo de usuarios\n- REQ-25: Documentación Swagger\n- Quinto Avance: Ventas, Facturas, PQR, Estadísticas, Chatbot IA",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -1215,6 +1215,226 @@
             },
             "description": "REQ-25: Verificar esquema OpenAPI de la API."
           },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Ventas (Quinto Avance)",
+      "description": "Endpoints de ventas - Registro, consulta, historial y reportes.",
+      "item": [
+        {
+          "name": "POST /api/ventas - Crear venta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status es 200', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "pm.test('Venta creada', function () { const d = pm.response.json(); pm.expect(d).to.have.property('venta'); pm.expect(d.venta).to.have.property('numero_venta'); });",
+                  "pm.test('Guardar venta_id', function () { const d = pm.response.json(); if(d.venta){ collectionVariables.set('venta_id', d.venta.id); collectionVariables.set('numero_venta', d.venta.numero_venta); } });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/ventas", "host": ["{{base_url}}"], "path": ["api", "ventas"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cliente_id\": 3,\n  \"items\": [{ \"tipo_item\": \"Producto\", \"item_id\": 1, \"cantidad\": 2, \"precio_unitario\": 50000, \"descuento\": 0 }],\n  \"descuento\": 0,\n  \"impuestos\": 19000,\n  \"observaciones\": \"Venta de prueba Postman\"\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/ventas - Listar ventas",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene ventas', function(){ pm.expect(pm.response.json()).to.have.property('ventas'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/ventas", "host": ["{{base_url}}"], "path": ["api", "ventas"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/ventas - Filtrar por estado",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/ventas?estado=Confirmada", "host": ["{{base_url}}"], "path": ["api", "ventas"], "query": [{ "key": "estado", "value": "Confirmada" }] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/ventas/:id - Obtener venta",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene items', function(){ pm.expect(pm.response.json().venta).to.have.property('items'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/ventas/{{venta_id}}", "host": ["{{base_url}}"], "path": ["api", "ventas", "{{venta_id}}"] } },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/ventas/:id/estado - Confirmar venta",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "PATCH", "url": { "raw": "{{base_url}}/api/ventas/{{venta_id}}/estado", "host": ["{{base_url}}"], "path": ["api", "ventas", "{{venta_id}}", "estado"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"estado\": \"Confirmada\" }" } },
+          "response": []
+        },
+        {
+          "name": "GET /api/ventas/reporte-diario - Reporte del día",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene resumen', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('resumen'); pm.expect(d).to.have.property('ventas'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/ventas/reporte-diario?fecha=2026-09-22", "host": ["{{base_url}}"], "path": ["api", "ventas", "reporte-diario"], "query": [{ "key": "fecha", "value": "2026-09-22" }] } },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Facturación (Quinto Avance)",
+      "description": "Endpoints de facturación.",
+      "item": [
+        {
+          "name": "POST /api/facturas - Generar factura",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Factura creada', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('factura'); pm.expect(d.factura).to.have.property('numero_factura'); });", "pm.test('Guardar datos', function(){ const d = pm.response.json(); if(d.factura){ collectionVariables.set('factura_id', d.factura.id); collectionVariables.set('numero_factura', d.factura.numero_factura); } });"] } }],
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/api/facturas", "host": ["{{base_url}}"], "path": ["api", "facturas"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"venta_id\": 1, \"cliente_id\": 3 }" } },
+          "response": []
+        },
+        {
+          "name": "GET /api/facturas - Listar facturas",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene facturas', function(){ pm.expect(pm.response.json()).to.have.property('facturas'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/facturas", "host": ["{{base_url}}"], "path": ["api", "facturas"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/facturas - Filtrar por estado",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/facturas?estado=Pendiente", "host": ["{{base_url}}"], "path": ["api", "facturas"], "query": [{ "key": "estado", "value": "Pendiente" }] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/facturas/:id - Obtener factura",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene items', function(){ pm.expect(pm.response.json().factura).to.have.property('items'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/facturas/{{factura_id}}", "host": ["{{base_url}}"], "path": ["api", "facturas", "{{factura_id}}"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/facturas/por-numero/:num - Buscar por número",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/facturas/por-numero/{{numero_factura}}", "host": ["{{base_url}}"], "path": ["api", "facturas", "por-numero", "{{numero_factura}}"] } },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/facturas/:id/estado - Marcar Pagada",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "PATCH", "url": { "raw": "{{base_url}}/api/facturas/{{factura_id}}/estado", "host": ["{{base_url}}"], "path": ["api", "facturas", "{{factura_id}}", "estado"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"estado\": \"Pagada\" }" } },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. PQR (Quinto Avance)",
+      "description": "Endpoints de Peticiones, Quejas y Reclamos.",
+      "item": [
+        {
+          "name": "POST /api/pqr - Crear PQR",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('PQR creada', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('pqr'); pm.expect(d.pqr.estado).to.eql('Pendiente'); });", "pm.test('Guardar pqr_id', function(){ const d = pm.response.json(); if(d.pqr){ collectionVariables.set('pqr_id', d.pqr.id); } });"] } }],
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/api/pqr", "host": ["{{base_url}}"], "path": ["api", "pqr"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"tipo\": \"Queja\", \"asunto\": \"Servicio de mala calidad\", \"descripcion\": \"Prueba Postman.\" }" } },
+          "response": []
+        },
+        {
+          "name": "GET /api/pqr - Listar PQRs",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene PQRs', function(){ pm.expect(pm.response.json()).to.have.property('pqr'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/pqr", "host": ["{{base_url}}"], "path": ["api", "pqr"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/pqr - Filtrar por tipo",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/pqr?tipo=Queja", "host": ["{{base_url}}"], "path": ["api", "pqr"], "query": [{ "key": "tipo", "value": "Queja" }] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/pqr/:id - Obtener PQR",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/pqr/{{pqr_id}}", "host": ["{{base_url}}"], "path": ["api", "pqr", "{{pqr_id}}"] } },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/pqr/:id/asignar - Asignar a empleado",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "PATCH", "url": { "raw": "{{base_url}}/api/pqr/{{pqr_id}}/asignar", "host": ["{{base_url}}"], "path": ["api", "pqr", "{{pqr_id}}", "asignar"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"usuario_asignado_id\": 2 }" } },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/pqr/:id/estado - Responder PQR",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "PATCH", "url": { "raw": "{{base_url}}/api/pqr/{{pqr_id}}/estado", "host": ["{{base_url}}"], "path": ["api", "pqr", "{{pqr_id}}", "estado"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"estado\": \"Respondida\", \"respuesta\": \"Su queja fue atendida.\" }" } },
+          "response": []
+        },
+        {
+          "name": "GET /api/pqr/estadisticas - Estadísticas",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene stats', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('total'); pm.expect(d).to.have.property('por_estado'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/pqr/estadisticas", "host": ["{{base_url}}"], "path": ["api", "pqr", "estadisticas"] } },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. Estadísticas / Dashboard (Quinto Avance)",
+      "description": "Endpoints de estadísticas para dashboards.",
+      "item": [
+        {
+          "name": "GET /api/stats/dashboard - Estadísticas generales",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene indicadores', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('total_ventas'); pm.expect(d).to.have.property('total_pqr'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/stats/dashboard", "host": ["{{base_url}}"], "path": ["api", "stats", "dashboard"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/stats/ventas-por-periodo - Diario",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene datos', function(){ pm.expect(pm.response.json().datos).to.be.an('array'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/stats/ventas-por-periodo?periodo=diario", "host": ["{{base_url}}"], "path": ["api", "stats", "ventas-por-periodo"], "query": [{ "key": "periodo", "value": "diario" }] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/stats/ventas-por-periodo - Con fechas",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/stats/ventas-por-periodo?periodo=diario&fecha_inicio=2026-09-01&fecha_fin=2026-09-30", "host": ["{{base_url}}"], "path": ["api", "stats", "ventas-por-periodo"], "query": [{ "key": "periodo", "value": "diario" }, { "key": "fecha_inicio", "value": "2026-09-01" }, { "key": "fecha_fin", "value": "2026-09-30" }] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/stats/ventas-por-producto - Top productos",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene productos', function(){ pm.expect(pm.response.json().productos).to.be.an('array'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/stats/ventas-por-producto", "host": ["{{base_url}}"], "path": ["api", "stats", "ventas-por-producto"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/stats/ventas-mensuales - Mensual",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('12 meses', function(){ pm.expect(pm.response.json().datos.length).to.eql(12); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/stats/ventas-mensuales", "host": ["{{base_url}}"], "path": ["api", "stats", "ventas-mensuales"] } },
+          "response": []
+        },
+        {
+          "name": "GET /api/stats/resumen-ventas-hoy - Resumen hoy",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene totales', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('total_ventas'); pm.expect(d).to.have.property('total_ingresos'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/stats/resumen-ventas-hoy", "host": ["{{base_url}}"], "path": ["api", "stats", "resumen-ventas-hoy"] } },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11. Chatbot IA (Quinto Avance)",
+      "description": "Endpoints del chatbot con Google Gemini.",
+      "item": [
+        {
+          "name": "POST /api/chatbot - Primer mensaje",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Respuesta IA', function(){ const d = pm.response.json(); pm.expect(d).to.have.property('respuesta'); pm.expect(d.respuesta.length).to.be.greaterThan(0); pm.expect(d).to.have.property('session_id'); });", "pm.test('Guardar session', function(){ const d = pm.response.json(); if(d.session_id) collectionVariables.set('chatbot_session_id', d.session_id); });"] } }],
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/api/chatbot", "host": ["{{base_url}}"], "path": ["api", "chatbot"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"mensaje\": \"Hola, ¿qué servicios ofrecen?\" }" } },
+          "response": []
+        },
+        {
+          "name": "POST /api/chatbot - Segundo mensaje (misma sesión)",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Misma sesión', function(){ pm.expect(pm.response.json().session_id).to.eql(pm.collectionVariables.get('chatbot_session_id')); });"] } }],
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/api/chatbot", "host": ["{{base_url}}"], "path": ["api", "chatbot"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"mensaje\": \"¿Cuánto cuesta un vuelo?\", \"session_id\": \"{{chatbot_session_id}}\" }" } },
+          "response": []
+        },
+        {
+          "name": "POST /api/chatbot - Consulta PQR",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });"] } }],
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/api/chatbot", "host": ["{{base_url}}"], "path": ["api", "chatbot"] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"mensaje\": \"Quiero hacer un reclamo\" }" } },
+          "response": []
+        },
+        {
+          "name": "GET /api/chatbot/historial/:id - Ver historial",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function(){ pm.expect(pm.response.code).to.eql(200); });", "pm.test('Tiene historial', function(){ pm.expect(pm.response.json().historial).to.be.an('array'); });"] } }],
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/chatbot/historial/{{chatbot_session_id}}", "host": ["{{base_url}}"], "path": ["api", "chatbot", "historial", "{{chatbot_session_id}}"] } },
           "response": []
         }
       ]

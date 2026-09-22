@@ -224,6 +224,106 @@ INSERT INTO usuarios (nombre, apellido, tipo_documento, numero_documento, direcc
 ON DUPLICATE KEY UPDATE email = email;
 
 -- =====================================================
+-- Tabla de ventas
+-- =====================================================
+CREATE TABLE IF NOT EXISTS ventas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  cliente_id INT,
+  subtotal DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  impuestos DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  descuento DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  total DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  estado ENUM('Pendiente', 'Confirmada', 'Cancelada', 'Completada') NOT NULL DEFAULT 'Pendiente',
+  observaciones TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+  FOREIGN KEY (cliente_id) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+-- =====================================================
+-- Tabla de detalle de ventas
+-- =====================================================
+CREATE TABLE IF NOT EXISTS detalle_ventas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  venta_id INT NOT NULL,
+  tipo_item ENUM('Producto', 'Servicio') NOT NULL,
+  item_id INT NOT NULL,
+  cantidad INT NOT NULL DEFAULT 1,
+  precio_unitario DECIMAL(12, 2) NOT NULL,
+  descuento DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  subtotal DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- Tabla de facturas
+-- =====================================================
+CREATE TABLE IF NOT EXISTS facturas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  numero_factura VARCHAR(30) NOT NULL UNIQUE,
+  venta_id INT NOT NULL,
+  cliente_id INT,
+  usuario_id INT NOT NULL,
+  subtotal DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  impuestos DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  descuento DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  total DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  estado ENUM('Pendiente', 'Pagada', 'Anulada', 'Vencida') NOT NULL DEFAULT 'Pendiente',
+  fecha_vencimiento DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE RESTRICT,
+  FOREIGN KEY (cliente_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT
+);
+
+-- =====================================================
+-- Tabla de PQR (Peticiones, Quejas, Reclamos)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS pqr (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  numero_pqr VARCHAR(30) NOT NULL UNIQUE,
+  cliente_id INT NOT NULL,
+  usuario_asignado_id INT,
+  tipo ENUM('Peticion', 'Queja', 'Reclamo', 'Solicitud') NOT NULL DEFAULT 'Peticion',
+  asunto VARCHAR(200) NOT NULL,
+  descripcion TEXT NOT NULL,
+  estado ENUM('Pendiente', 'En Proceso', 'Respondida', 'Cerrada') NOT NULL DEFAULT 'Pendiente',
+  respuesta TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (cliente_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+  FOREIGN KEY (usuario_asignado_id) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+-- =====================================================
+-- Tabla de conversaciones del chatbot
+-- =====================================================
+CREATE TABLE IF NOT EXISTS conversaciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT,
+  session_id VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+-- =====================================================
+-- Tabla de mensajes del chatbot
+-- =====================================================
+CREATE TABLE IF NOT EXISTS mensajes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  conversacion_id INT NOT NULL,
+  rol ENUM('user', 'assistant') NOT NULL,
+  contenido TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversacion_id) REFERENCES conversaciones(id) ON DELETE CASCADE
+);
+
+-- =====================================================
 -- Vista: usuarios con información de rol
 -- =====================================================
 CREATE OR REPLACE VIEW vista_usuarios AS

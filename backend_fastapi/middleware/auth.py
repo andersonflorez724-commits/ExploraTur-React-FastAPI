@@ -20,6 +20,11 @@ JWT_EXPIRES_IN = os.getenv("JWT_EXPIRES_IN", "24h")
 
 security = HTTPBearer()
 
+# Esquema de autenticación opcional: se usa en endpoints públicos que además
+# cambian su respuesta si llega una sesión válida (por ejemplo, en /api/flights
+# el administrador también ve los vuelos inactivos).
+optional_security = HTTPBearer(auto_error=False)
+
 
 def generate_token(user: Usuario, rol_nombre: str = None) -> str:
     """Genera un JWT para un usuario."""
@@ -78,6 +83,31 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tu cuenta está inactiva. Contacta al administrador.",
         )
+
+    return payload
+
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+    db: Session = Depends(get_db),
+) -> Optional[dict]:
+    """
+    Dependency: devuelve el usuario autenticado si hay un token válido; si no, None.
+
+    Pensada para endpoints públicos: si el token falta, está vencido o el usuario
+    ya no es válido, la petición continúa como anónima en vez de devolver 401.
+    """
+    if credentials is None:
+        return None
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except HTTPException:
+        return None
+
+    user = db.query(Usuario).filter(Usuario.id == payload.get("id")).first()
+    if not user or user.estado == "Inactivo":
+        return None
 
     return payload
 

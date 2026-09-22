@@ -11,7 +11,7 @@ from sqlalchemy import or_
 from config.database import get_db
 from models.models import Vuelo
 from schemas.schemas import FlightRequest, FlightUpdateRequest, ToggleStatusRequest
-from middleware.auth import get_current_user, require_admin
+from middleware.auth import get_optional_user, require_admin
 
 router = APIRouter(prefix="/api/flights", tags=["Flights"])
 
@@ -47,12 +47,14 @@ def get_all_flights(
     fecha: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
     busqueda: Optional[str] = Query(None),
-    current_user: dict = Depends(get_current_user),
+    current_user: Optional[dict] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """
     GET /api/flights
-    Lista todos los vuelos (público para autenticados).
+    Lista los vuelos. Es público: la página /vuelos se ve sin iniciar sesión,
+    así que la petición anónima devuelve el catálogo activo. Un administrador
+    autenticado ve además los vuelos inactivos.
     """
     query = db.query(Vuelo)
 
@@ -74,7 +76,7 @@ def get_all_flights(
     if estado:
         query = query.filter(Vuelo.estado == estado)
     else:
-        if current_user.get("rol") != "Administrador":
+        if (current_user or {}).get("rol") != "Administrador":
             query = query.filter(Vuelo.estado == "Activo")
 
     if busqueda:
@@ -100,12 +102,12 @@ def get_all_flights(
 @router.get("/{flight_id}")
 def get_flight_by_id(
     flight_id: int,
-    current_user: dict = Depends(get_current_user),
+    current_user: Optional[dict] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """
     GET /api/flights/:id
-    Obtiene un vuelo por ID.
+    Obtiene un vuelo por ID (público, igual que el listado).
     """
     flight = db.query(Vuelo).filter(Vuelo.id == flight_id).first()
     if not flight:
