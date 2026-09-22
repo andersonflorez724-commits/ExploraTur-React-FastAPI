@@ -5,13 +5,6 @@ Backend para React + Vite con autenticación JWT y base de datos MySQL.
 
 import os
 import sys
-import io
-
-# Fix Windows console encoding for emoji characters.
-# write_through/line_buffering hacen que los mensajes de arranque (roles,
-# usuarios y vuelos de prueba) se vean al instante y no al cerrar el servidor.
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', write_through=True, line_buffering=True)
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', write_through=True, line_buffering=True)
 
 # Agregar el directorio actual al path para que los imports funcionen
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
