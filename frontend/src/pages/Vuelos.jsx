@@ -5,7 +5,7 @@ import Select from '../components/ui/Select'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import RegisterModal from '../components/auth/RegisterModal'
-import { apiGetFlights } from '../utils/api'
+import { apiGetFlights, apiComprarVuelo } from '../utils/api'
 import {
   getSession,
   getFavorites,
@@ -55,6 +55,8 @@ function Vuelos() {
   )
   const [pendingFlight, setPendingFlight] = useState(null)
   const [purchased, setPurchased] = useState(false)
+  const [buying, setBuying] = useState(false)
+  const [buyError, setBuyError] = useState('')
   const [authAction, setAuthAction] = useState(null)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [tab, setTab] = useState('favoritos')
@@ -130,19 +132,34 @@ function Vuelos() {
   const handleBuy = (flight) => {
     if (!requireAuth('buy')) return
     setPurchased(false)
+    setBuyError('')
     setPendingFlight(flight)
   }
 
-  const confirmPurchase = () => {
-    if (!pendingFlight || !user) return
-    const next = addPurchase(user.email, pendingFlight)
-    setPurchases(next)
-    setPurchased(true)
+  const confirmPurchase = async () => {
+    if (!pendingFlight || !user || buying) return
+    setBuying(true)
+    setBuyError('')
+    try {
+      await apiComprarVuelo({
+        vuelo_id: pendingFlight.id,
+        cantidad: Number(search.passengers) || 1,
+      })
+      const next = addPurchase(user.email, pendingFlight)
+      setPurchases(next)
+      setPurchased(true)
+      loadFlights()
+    } catch (err) {
+      setBuyError(err.message || 'No se pudo registrar la compra. Intenta de nuevo.')
+    } finally {
+      setBuying(false)
+    }
   }
 
   const closeBuyModal = () => {
     setPendingFlight(null)
     setPurchased(false)
+    setBuyError('')
   }
 
   const isFavorite = (id) => favorites.includes(id)
@@ -630,15 +647,23 @@ function Vuelos() {
               </div>
 
               <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
-                Esta es una demostración académica: la compra se registra
-                únicamente en tu navegador.
+                Tu compra quedará registrada en la plataforma y aparecerá en la
+                sección «Mis vuelos».
               </p>
 
+              {buyError && (
+                <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">
+                  ⚠️ {buyError}
+                </p>
+              )}
+
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <Button variant="ghost" onClick={closeBuyModal}>
+                <Button variant="ghost" onClick={closeBuyModal} disabled={buying}>
                   Cancelar
                 </Button>
-                <Button onClick={confirmPurchase}>Confirmar compra</Button>
+                <Button onClick={confirmPurchase} disabled={buying}>
+                  {buying ? 'Procesando...' : 'Confirmar compra'}
+                </Button>
               </div>
             </div>
           ))}

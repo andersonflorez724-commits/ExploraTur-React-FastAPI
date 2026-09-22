@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
+import { apiCreatePQR } from '../utils/api'
+import { getSession } from '../utils/storage'
 
 /**
  * Página interna "Contacto": formulario controlado con validación
- * en tiempo real y datos de la empresa.
+ * en tiempo real y datos de la empresa. Si el usuario tiene sesión,
+ * el mensaje se registra como PQR en el backend.
  */
 function Contacto() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [errors, setErrors] = useState({})
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
   const rules = {
@@ -44,7 +48,7 @@ function Contacto() {
     if (error) setError('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const validation = {}
     Object.entries(rules).forEach(([name, rule]) => {
@@ -59,6 +63,22 @@ function Contacto() {
     }
 
     setError('')
+    const session = getSession()
+
+    if (session) {
+      setSending(true)
+      try {
+        const asunto = form.subject.trim() || `Consulta de ${form.name.trim()}`
+        const descripcion = `De: ${form.name.trim()} <${form.email.trim()}>\n\n${form.message.trim()}`
+        await apiCreatePQR({ tipo: 'Peticion', asunto, descripcion })
+      } catch (err) {
+        setError(err.message || 'No se pudo enviar el mensaje. Intenta de nuevo.')
+        setSending(false)
+        return
+      }
+      setSending(false)
+    }
+
     setSent(true)
     setForm({ name: '', email: '', subject: '', message: '' })
     setErrors({})
@@ -196,7 +216,9 @@ function Contacto() {
               )}
 
               <div className="mt-6">
-                <Button type="submit">Enviar mensaje</Button>
+                <Button type="submit" disabled={sending}>
+                  {sending ? 'Enviando...' : 'Enviar mensaje'}
+                </Button>
               </div>
             </form>
           </div>

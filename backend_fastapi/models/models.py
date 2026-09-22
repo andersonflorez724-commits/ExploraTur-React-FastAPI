@@ -158,7 +158,7 @@ class DetalleVenta(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     venta_id = Column(Integer, ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False)
-    tipo_item = Column(Enum("Producto", "Servicio", name="tipo_item_enum"), nullable=False)
+    tipo_item = Column(Enum("Producto", "Servicio", "Vuelo", name="tipo_item_enum"), nullable=False)
     item_id = Column(Integer, nullable=False)
     cantidad = Column(Integer, nullable=False, default=1)
     precio_unitario = Column(DECIMAL(12, 2), nullable=False)

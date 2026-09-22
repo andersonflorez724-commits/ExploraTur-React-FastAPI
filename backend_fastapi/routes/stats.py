@@ -142,7 +142,7 @@ def ventas_por_producto(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin_or_employee),
 ):
-    """Top productos más vendidos."""
+    """Top productos y vuelos más vendidos."""
     resultados = db.query(
         DetalleVenta.item_id,
         func.sum(DetalleVenta.cantidad).label("total_cantidad"),
@@ -161,7 +161,29 @@ def ventas_por_producto(
             "total_valor": float(r.total_valor),
         })
 
-    return {"productos": data}
+    vuelos_result = db.query(
+        DetalleVenta.item_id,
+        func.sum(DetalleVenta.cantidad).label("total_cantidad"),
+        func.sum(DetalleVenta.subtotal).label("total_valor")
+    ).filter(
+        DetalleVenta.tipo_item == "Vuelo"
+    ).group_by(DetalleVenta.item_id).all()
+
+    for r in vuelos_result:
+        vuelo = db.query(Vuelo).filter(Vuelo.id == r.item_id).first()
+        data.append({
+            "item_id": r.item_id,
+            "nombre": (
+                f"{vuelo.aerolinea} {vuelo.codigo_origen}→{vuelo.codigo_destino}"
+                if vuelo else "Vuelo eliminado"
+            ),
+            "total_cantidad": int(r.total_cantidad),
+            "total_valor": float(r.total_valor),
+        })
+
+    data.sort(key=lambda x: x["total_cantidad"], reverse=True)
+
+    return {"productos": data[:10]}
 
 
 @router.get("/ventas-por-servicio")

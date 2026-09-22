@@ -9,9 +9,10 @@ from datetime import datetime, date, timedelta
 import decimal
 
 from config.database import get_db
-from models.models import Factura, Venta, DetalleVenta, Usuario, Producto, Servicio
+from models.models import Factura, Venta, DetalleVenta, Usuario, Producto, Servicio, Vuelo
 from schemas.schemas import FacturaRequest, FacturaResponse, FacturaUpdateEstado
 from middleware.auth import get_current_user, require_admin, require_admin_or_employee
+from routes.ventas import resolver_nombre_item
 
 router = APIRouter(prefix="/api/facturas", tags=["Facturas"])
 
@@ -65,13 +66,7 @@ def factura_completa_to_dict(factura: Factura, db: Session) -> dict:
     if venta:
         detalles = []
         for d in (venta.detalles if hasattr(venta, 'detalles') and venta.detalles else []):
-            item_nombre = ""
-            if d.tipo_item == "Producto":
-                prod = db.query(Producto).filter(Producto.id == d.item_id).first()
-                item_nombre = prod.nombre if prod else "N/A"
-            elif d.tipo_item == "Servicio":
-                serv = db.query(Servicio).filter(Servicio.id == d.item_id).first()
-                item_nombre = serv.nombre if serv else "N/A"
+            item_nombre = resolver_nombre_item(db, d.tipo_item, d.item_id)
             detalles.append({
                 "tipo": d.tipo_item,
                 "nombre": item_nombre,

@@ -190,7 +190,15 @@ function AdminPanel() {
   }
 
   // DASHBOARD STATS
-  const loadDashStats = async () => { try { const d = await apiGetDashboardStats(); setDashStats(d) } catch {} }
+  const loadDashStats = async () => {
+    try {
+      const d = await apiGetDashboardStats()
+      setDashStats(d)
+    } catch (err) {
+      console.error('Error al cargar estadísticas del dashboard:', err)
+      setError(err.message)
+    }
+  }
   const loadChartData = async () => {
     try {
       const params = { periodo: chartPeriod }
@@ -198,15 +206,21 @@ function AdminPanel() {
       if (chartFechaFin) params.fecha_fin = chartFechaFin
       const period = await apiGetSalesByPeriod(params)
       setPeriodData(period.datos || [])
-    } catch {}
+    } catch (err) {
+      console.error('Error al cargar ventas por período:', err)
+    }
     try {
       const monthly = await apiGetMonthlySales()
       setMonthlyData(monthly.datos || [])
-    } catch {}
+    } catch (err) {
+      console.error('Error al cargar ventas mensuales:', err)
+    }
     try {
       const prodData = await apiGetSalesByProduct()
       setProductSalesData(prodData.productos || [])
-    } catch {}
+    } catch (err) {
+      console.error('Error al cargar productos vendidos:', err)
+    }
   }
 
   // USUARIOS

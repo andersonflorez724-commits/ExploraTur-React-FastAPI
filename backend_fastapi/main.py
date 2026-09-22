@@ -259,6 +259,28 @@ def health():
 
 
 # =====================================================
+# Migraciones ligeras de enums (create_all no altera tablas existentes)
+# =====================================================
+def migrate_enums():
+    """Aplica cambios de ENUM que create_all no puede hacer en tablas ya creadas."""
+    from sqlalchemy import text
+
+    if engine.dialect.name != "mysql":
+        return
+
+    alters = [
+        "ALTER TABLE detalle_ventas MODIFY tipo_item ENUM('Producto', 'Servicio', 'Vuelo') NOT NULL",
+    ]
+    for stmt in alters:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(stmt))
+            print(f"[OK] Enum migration: {stmt.split(' MODIFY ')[1][:60]}...")
+        except Exception as e:
+            print(f"[WARN] Enum migration skipped: {e}")
+
+
+# =====================================================
 # Evento de inicio
 # =====================================================
 @app.on_event("startup")
@@ -270,6 +292,7 @@ def startup_event():
         try:
             Base.metadata.create_all(bind=engine)
             print("[OK] Tables verified/created successfully")
+            migrate_enums()
             seed_roles()
             seed_users()
             seed_flights()

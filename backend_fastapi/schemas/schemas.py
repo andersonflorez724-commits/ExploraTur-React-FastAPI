@@ -516,6 +516,18 @@ class VentaUpdateEstado(BaseModel):
         return v
 
 
+class ComprarVueloRequest(BaseModel):
+    vuelo_id: int
+    cantidad: int = 1
+
+    @field_validator("cantidad")
+    @classmethod
+    def validate_cantidad(cls, v):
+        if v < 1 or v > 10:
+            raise ValueError("La cantidad de pasajeros debe estar entre 1 y 10.")
+        return v
+
+
 # =====================================================
 # Facturas
 # =====================================================

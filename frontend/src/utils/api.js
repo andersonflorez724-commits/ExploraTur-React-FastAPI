@@ -288,6 +288,13 @@ export async function apiCreateSale(saleData) {
   })
 }
 
+export async function apiComprarVuelo({ vuelo_id, cantidad }) {
+  return apiRequest('/ventas/comprar-vuelo', {
+    method: 'POST',
+    body: JSON.stringify({ vuelo_id, cantidad }),
+  })
+}
+
 export async function apiGetSales(params = {}) {
   const query = new URLSearchParams(params).toString()
   return apiRequest(`/ventas${query ? `?${query}` : ''}`)

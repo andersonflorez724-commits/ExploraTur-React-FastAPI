@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS ventas (
 CREATE TABLE IF NOT EXISTS detalle_ventas (
   id INT AUTO_INCREMENT PRIMARY KEY,
   venta_id INT NOT NULL,
-  tipo_item ENUM('Producto', 'Servicio') NOT NULL,
+  tipo_item ENUM('Producto', 'Servicio', 'Vuelo') NOT NULL,
   item_id INT NOT NULL,
   cantidad INT NOT NULL DEFAULT 1,
   precio_unitario DECIMAL(12, 2) NOT NULL,

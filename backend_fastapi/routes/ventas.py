@@ -9,9 +9,10 @@ from datetime import datetime, date
 import decimal
 
 from config.database import get_db
-from models.models import Venta, DetalleVenta, Usuario, Producto, Servicio
+from models.models import Venta, DetalleVenta, Usuario, Producto, Servicio, Vuelo, Factura
 from schemas.schemas import (
-    VentaRequest, VentaResponse, VentaUpdateEstado, ReporteDiarioRequest
+    VentaRequest, VentaResponse, VentaUpdateEstado, ReporteDiarioRequest,
+    ComprarVueloRequest
 )
 from middleware.auth import get_current_user, require_admin, require_admin_or_employee
 
@@ -25,6 +26,22 @@ def generar_numero_venta(db: Session) -> str:
         func.date(Venta.created_at) == date.today()
     ).scalar() or 0
     return f"VTA-{today}-{count + 1:04d}"
+
+
+def resolver_nombre_item(db: Session, tipo_item: str, item_id: int) -> str:
+    """Resuelve el nombre legible de un item del detalle de venta."""
+    if tipo_item == "Producto":
+        prod = db.query(Producto).filter(Producto.id == item_id).first()
+        return prod.nombre if prod else "Producto eliminado"
+    if tipo_item == "Servicio":
+        serv = db.query(Servicio).filter(Servicio.id == item_id).first()
+        return serv.nombre if serv else "Servicio eliminado"
+    if tipo_item == "Vuelo":
+        vuelo = db.query(Vuelo).filter(Vuelo.id == item_id).first()
+        if vuelo:
+            return f"{vuelo.origen} → {vuelo.destino} ({vuelo.numero_vuelo})"
+        return "Vuelo eliminado"
+    return ""
 
 
 def venta_to_dict(venta: Venta, db: Session = None) -> dict:
@@ -45,14 +62,7 @@ def venta_to_dict(venta: Venta, db: Session = None) -> dict:
     detalles = []
     if hasattr(venta, 'detalles') and venta.detalles:
         for d in venta.detalles:
-            item_nombre = ""
-            if db:
-                if d.tipo_item == "Producto":
-                    prod = db.query(Producto).filter(Producto.id == d.item_id).first()
-                    item_nombre = prod.nombre if prod else "Producto eliminado"
-                elif d.tipo_item == "Servicio":
-                    serv = db.query(Servicio).filter(Servicio.id == d.item_id).first()
-                    item_nombre = serv.nombre if serv else "Servicio eliminado"
+            item_nombre = resolver_nombre_item(db, d.tipo_item, d.item_id) if db else ""
 
             detalles.append({
                 "id": d.id,
@@ -150,6 +160,81 @@ def crear_venta(data: VentaRequest, db: Session = Depends(get_db), current_user:
     return {"mensaje": "Venta creada exitosamente.", "venta": venta_to_dict(venta, db)}
 
 
+@router.post("/comprar-vuelo")
+def comprar_vuelo(
+    data: ComprarVueloRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Registra la compra online de un vuelo por un cliente autenticado."""
+    vuelo = db.query(Vuelo).filter(Vuelo.id == data.vuelo_id).first()
+    if not vuelo:
+        raise HTTPException(status_code=404, detail="Vuelo no encontrado.")
+    if vuelo.estado != "Activo":
+        raise HTTPException(status_code=400, detail="El vuelo no está disponible.")
+    if vuelo.asientos_disponibles < data.cantidad:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Asientos insuficientes. Disponibles: {vuelo.asientos_disponibles}.",
+        )
+
+    precio = decimal.Decimal(str(vuelo.precio))
+    subtotal = precio * data.cantidad
+
+    venta = Venta(
+        usuario_id=current_user["id"],
+        cliente_id=current_user["id"],
+        subtotal=subtotal,
+        impuestos=decimal.Decimal("0"),
+        descuento=decimal.Decimal("0"),
+        total=subtotal,
+        estado="Confirmada",
+        observaciones=(
+            f"Compra online: vuelo {vuelo.numero_vuelo} "
+            f"{vuelo.origen} → {vuelo.destino}, {data.cantidad} pasajero(s)"
+        ),
+    )
+    db.add(venta)
+    db.flush()
+
+    db.add(DetalleVenta(
+        venta_id=venta.id,
+        tipo_item="Vuelo",
+        item_id=vuelo.id,
+        cantidad=data.cantidad,
+        precio_unitario=precio,
+        descuento=decimal.Decimal("0"),
+        subtotal=subtotal,
+    ))
+
+    vuelo.asientos_disponibles -= data.cantidad
+
+    from routes.facturas import generar_numero_factura
+    factura = Factura(
+        numero_factura=generar_numero_factura(db),
+        venta_id=venta.id,
+        cliente_id=current_user["id"],
+        usuario_id=current_user["id"],
+        subtotal=subtotal,
+        impuestos=decimal.Decimal("0"),
+        descuento=decimal.Decimal("0"),
+        total=subtotal,
+        estado="Pagada",
+        fecha_vencimiento=None,
+    )
+    db.add(factura)
+
+    db.commit()
+    db.refresh(venta)
+
+    return {
+        "mensaje": "Compra de vuelo registrada exitosamente.",
+        "venta": venta_to_dict(venta, db),
+        "factura_numero": factura.numero_factura,
+        "asientos_restantes": vuelo.asientos_disponibles,
+    }
+
+
 @router.get("")
 def listar_ventas(
     fecha_inicio: str = Query(None),
@@ -226,13 +311,7 @@ def reporte_diario(
 
         items = []
         for d in (v.detalles if hasattr(v, 'detalles') and v.detalles else []):
-            item_nombre = ""
-            if d.tipo_item == "Producto":
-                prod = db.query(Producto).filter(Producto.id == d.item_id).first()
-                item_nombre = prod.nombre if prod else "N/A"
-            elif d.tipo_item == "Servicio":
-                serv = db.query(Servicio).filter(Servicio.id == d.item_id).first()
-                item_nombre = serv.nombre if serv else "N/A"
+            item_nombre = resolver_nombre_item(db, d.tipo_item, d.item_id)
             items.append({
                 "tipo": d.tipo_item,
                 "nombre": item_nombre,
