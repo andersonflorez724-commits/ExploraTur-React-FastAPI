@@ -246,38 +246,39 @@ def seed_users():
 
 
 # =====================================================
+# Health check endpoint
+# =====================================================
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "ExploraTur API is running", "docs": "/docs"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# =====================================================
 # Evento de inicio
 # =====================================================
 @app.on_event("startup")
 def startup_event():
-    """Inicializa la base de datos y crea usuarios de prueba."""
-    print("\nConnecting to MySQL...")
+    import threading
 
-    try:
-        # Crear tablas si no existen
-        Base.metadata.create_all(bind=engine)
-        print("[OK] Tables verified/created successfully")
+    def init_db():
+        print("\nConnecting to MySQL...")
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("[OK] Tables verified/created successfully")
+            seed_roles()
+            seed_users()
+            seed_flights()
+            print("[OK] Seed completed")
+        except Exception as e:
+            print(f"[WARN] Seed error: {e}")
 
-        # Crear roles por defecto
-        seed_roles()
-
-        # Crear usuarios de prueba
-        seed_users()
-
-        # Crear vuelos de prueba si el catálogo está vacío
-        seed_flights()
-
-        print(f"\n[OK] ExploraTur FastAPI server running at http://localhost:{port}")
-        print(f"[OK] API available at http://localhost:{port}/api")
-        print(f"[OK] Swagger docs at http://localhost:{port}/docs\n")
-
-    except Exception as e:
-        print(f"\n[ERROR] Error connecting to MySQL: {e}")
-        print("\n   Make sure MySQL is running.")
-        print("   Solutions:")
-        print("   1. Open XAMPP Control Panel and start MySQL")
-        print("   2. Check the .env configuration")
-        raise
+    threading.Thread(target=init_db, daemon=True).start()
+    print(f"[OK] ExploraTur FastAPI server running on port {port}")
 
 
 # =====================================================
