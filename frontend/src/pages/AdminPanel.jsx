@@ -38,6 +38,11 @@ import {
   apiGetSalesByProduct,
 } from '../utils/api'
 import { getSession } from '../utils/storage'
+import {
+  validateRequired, validateEmail, validatePhone, validatePassword,
+  validateLettersOnly, validateMinLength, validateMaxLength,
+  validateDigits, validateForm,
+} from '../utils/validators'
 
 const INITIAL_USER = {
   nombre: '', apellido: '', tipo_documento: 'CC', numero_documento: '',
@@ -98,6 +103,7 @@ function AdminPanel() {
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [formErrors, setFormErrors] = useState({})
 
   useEffect(() => {
     const sync = () => setUser(getSession())
@@ -124,6 +130,64 @@ function AdminPanel() {
   }, [tab, user])
 
   const clearMessages = () => { setError(''); setSuccess('') }
+
+  // Validation rules per form
+  const userRules = {
+    nombre: (v) => validateRequired(v, 'Nombre') || validateLettersOnly(v, 'Nombre') || validateMinLength(v, 2, 'Nombre'),
+    apellido: (v) => validateRequired(v, 'Apellido') || validateLettersOnly(v, 'Apellido') || validateMinLength(v, 2, 'Apellido'),
+    numero_documento: (v) => validateRequired(v, 'Nº Documento') || validateDigits(v, 6, 15, 'Nº Documento'),
+    direccion: (v) => validateRequired(v, 'Dirección') || validateMinLength(v, 5, 'Dirección') || validateMaxLength(v, 200, 'Dirección'),
+    telefono: (v) => validateRequired(v, 'Teléfono') || validatePhone(v),
+    email: (v) => validateRequired(v, 'Email') || validateEmail(v),
+    password: (v, form) => {
+      if (!form._editing && !v) return 'La contraseña es obligatoria.'
+      if (v) return validatePassword(v)
+      return null
+    },
+  }
+
+  const productRules = {
+    nombre: (v) => validateRequired(v, 'Nombre') || validateMinLength(v, 2, 'Nombre') || validateMaxLength(v, 200, 'Nombre'),
+    precio: (v) => {
+      const n = parseFloat(v)
+      if (isNaN(n) || n < 0) return 'El precio debe ser un número positivo.'
+      return null
+    },
+  }
+
+  const serviceRules = {
+    nombre: (v) => validateRequired(v, 'Nombre') || validateMinLength(v, 2, 'Nombre') || validateMaxLength(v, 200, 'Nombre'),
+    precio: (v) => {
+      const n = parseFloat(v)
+      if (isNaN(n) || n < 0) return 'El precio debe ser un número positivo.'
+      return null
+    },
+  }
+
+  const flightRules = {
+    aerolinea: (v) => validateRequired(v, 'Aerolínea') || validateLettersOnly(v, 'Aerolínea'),
+    numero_vuelo: (v) => validateRequired(v, 'Nº Vuelo') || validateMinLength(v, 3, 'Nº Vuelo'),
+    origen: (v) => validateRequired(v, 'Origen') || validateLettersOnly(v, 'Origen'),
+    codigo_origen: (v) => validateRequired(v, 'Cód. Origen') || validateMinLength(v, 3, 'Cód. Origen') || validateMaxLength(v, 5, 'Cód. Origen'),
+    destino: (v) => validateRequired(v, 'Destino') || validateLettersOnly(v, 'Destino'),
+    codigo_destino: (v) => validateRequired(v, 'Cód. Destino') || validateMinLength(v, 3, 'Cód. Destino') || validateMaxLength(v, 5, 'Cód. Destino'),
+    fecha: (v) => validateRequired(v, 'Fecha'),
+    hora_salida: (v) => validateRequired(v, 'Hora Salida'),
+    hora_llegada: (v) => validateRequired(v, 'Hora Llegada'),
+    duracion: (v) => validateRequired(v, 'Duración'),
+    precio: (v) => {
+      const n = parseFloat(v)
+      if (isNaN(n) || n < 0) return 'El precio debe ser un número positivo.'
+      return null
+    },
+  }
+
+  const validateField = (field, value, rules, formState) => {
+    const rule = rules[field]
+    if (!rule) return
+    const msg = rule(value, { ...formState, _editing: !!editUser })
+    setFormErrors((prev) => ({ ...prev, [field]: msg || '' }))
+  }
 
   // DASHBOARD STATS
   const loadDashStats = async () => { try { const d = await apiGetDashboardStats(); setDashStats(d) } catch {} }
@@ -153,6 +217,9 @@ function AdminPanel() {
   const loadRoles = async () => { try { const data = await apiGetRoles(); setRoles(data.roles) } catch {} }
   const handleUserSubmit = async (e) => {
     e.preventDefault(); clearMessages()
+    const errors = validateForm(userForm, userRules)
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); setError('Corrige los errores antes de continuar.'); return }
+    setFormErrors({})
     try {
       if (editUser) { await apiUpdateUser(editUser.id, userForm); setSuccess('Usuario actualizado.') }
       else { await apiCreateUser(userForm); setSuccess('Usuario creado.') }
@@ -182,6 +249,9 @@ function AdminPanel() {
   const loadCategories = async () => { try { const data = await apiGetCategories(); setCategories(data.categorias) } catch {} }
   const handleProductSubmit = async (e) => {
     e.preventDefault(); clearMessages()
+    const errors = validateForm(productForm, productRules)
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); setError('Corrige los errores antes de continuar.'); return }
+    setFormErrors({})
     const payload = { ...productForm, precio: parseFloat(productForm.precio) || 0, stock: parseInt(productForm.stock) || 0 }
     try {
       if (editProduct) { await apiUpdateProduct(editProduct.id, payload); setSuccess('Producto actualizado.') }
@@ -206,6 +276,9 @@ function AdminPanel() {
   }
   const handleServiceSubmit = async (e) => {
     e.preventDefault(); clearMessages()
+    const errors = validateForm(serviceForm, serviceRules)
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); setError('Corrige los errores antes de continuar.'); return }
+    setFormErrors({})
     const payload = { ...serviceForm, precio: parseFloat(serviceForm.precio) || 0 }
     try {
       if (editService) { await apiUpdateService(editService.id, payload); setSuccess('Servicio actualizado.') }
@@ -231,6 +304,9 @@ function AdminPanel() {
   }
   const handleFlightSubmit = async (e) => {
     e.preventDefault(); clearMessages()
+    const errors = validateForm(flightForm, flightRules)
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); setError('Corrige los errores antes de continuar.'); return }
+    setFormErrors({})
     const payload = { ...flightForm, precio: parseFloat(flightForm.precio) || 0, asientos_disponibles: parseInt(flightForm.asientos_disponibles) || 50 }
     try {
       if (editFlight) { await apiUpdateFlight(editFlight.id, payload); setSuccess('Vuelo actualizado.') }
@@ -520,82 +596,82 @@ function AdminPanel() {
       {tab === 'pqr' && <PQRPage />}
 
       {/* MODAL USUARIO */}
-      <Modal open={userModal} onClose={() => { setUserModal(false); setEditUser(null) }} title={editUser ? 'Editar usuario' : 'Crear usuario'} wide>
-        <form onSubmit={handleUserSubmit} className="grid gap-3 sm:grid-cols-2">
-          <Input label="Nombre" name="nombre" value={userForm.nombre} onChange={(e) => setUserForm({ ...userForm, nombre: e.target.value })} required maxLength={100} />
-          <Input label="Apellido" name="apellido" value={userForm.apellido} onChange={(e) => setUserForm({ ...userForm, apellido: e.target.value })} required maxLength={100} />
+      <Modal open={userModal} onClose={() => { setUserModal(false); setEditUser(null); setFormErrors({}) }} title={editUser ? 'Editar usuario' : 'Crear usuario'} wide>
+        <form onSubmit={handleUserSubmit} className="grid gap-3 sm:grid-cols-2" noValidate>
+          <Input label="Nombre" name="nombre" value={userForm.nombre} onChange={(e) => { setUserForm({ ...userForm, nombre: e.target.value }); validateField('nombre', e.target.value, userRules, userForm) }} required maxLength={100} error={formErrors.nombre} />
+          <Input label="Apellido" name="apellido" value={userForm.apellido} onChange={(e) => { setUserForm({ ...userForm, apellido: e.target.value }); validateField('apellido', e.target.value, userRules, userForm) }} required maxLength={100} error={formErrors.apellido} />
           <Select label="Tipo de documento" name="tipo_documento" value={userForm.tipo_documento} onChange={(e) => setUserForm({ ...userForm, tipo_documento: e.target.value })} options={[{ value: 'CC', label: 'CC' }, { value: 'TI', label: 'TI' }, { value: 'CE', label: 'CE' }, { value: 'NIT', label: 'NIT' }, { value: 'PA', label: 'Pasaporte' }]} />
-          <Input label="Nº Documento" name="numero_documento" value={userForm.numero_documento} onChange={(e) => setUserForm({ ...userForm, numero_documento: e.target.value })} required maxLength={15} />
-          <Input label="Dirección" name="direccion" value={userForm.direccion} onChange={(e) => setUserForm({ ...userForm, direccion: e.target.value })} required maxLength={200} className="sm:col-span-2" />
-          <Input label="Teléfono" name="telefono" value={userForm.telefono} onChange={(e) => setUserForm({ ...userForm, telefono: e.target.value })} required maxLength={15} />
-          <Input label="Email" name="email" type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} required maxLength={150} />
-          <Input label="Contraseña" name="password" type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} maxLength={20} placeholder={editUser ? 'Dejar vacío para no cambiar' : 'Mín. 8 caracteres'} />
+          <Input label="Nº Documento" name="numero_documento" value={userForm.numero_documento} onChange={(e) => { setUserForm({ ...userForm, numero_documento: e.target.value }); validateField('numero_documento', e.target.value, userRules, userForm) }} required maxLength={15} error={formErrors.numero_documento} />
+          <Input label="Dirección" name="direccion" value={userForm.direccion} onChange={(e) => { setUserForm({ ...userForm, direccion: e.target.value }); validateField('direccion', e.target.value, userRules, userForm) }} required maxLength={200} className="sm:col-span-2" error={formErrors.direccion} />
+          <Input label="Teléfono" name="telefono" value={userForm.telefono} onChange={(e) => { setUserForm({ ...userForm, telefono: e.target.value }); validateField('telefono', e.target.value, userRules, userForm) }} required maxLength={15} error={formErrors.telefono} />
+          <Input label="Email" name="email" type="email" value={userForm.email} onChange={(e) => { setUserForm({ ...userForm, email: e.target.value }); validateField('email', e.target.value, userRules, userForm) }} required maxLength={150} error={formErrors.email} />
+          <Input label="Contraseña" name="password" type="password" value={userForm.password} onChange={(e) => { setUserForm({ ...userForm, password: e.target.value }); validateField('password', e.target.value, userRules, userForm) }} maxLength={20} placeholder={editUser ? 'Dejar vacío para no cambiar' : 'Mín. 8 caracteres'} error={formErrors.password} />
           <Select label="Rol" name="rol_id" value={userForm.rol_id} onChange={(e) => setUserForm({ ...userForm, rol_id: parseInt(e.target.value) })} options={roles.map((r) => ({ value: r.id, label: r.nombre }))} />
           <div className="flex gap-3 sm:col-span-2">
             <Button type="submit" fullWidth>{editUser ? 'Guardar cambios' : 'Crear usuario'}</Button>
-            <Button variant="ghost" type="button" onClick={() => { setUserModal(false); setEditUser(null) }}>Cancelar</Button>
+            <Button variant="ghost" type="button" onClick={() => { setUserModal(false); setEditUser(null); setFormErrors({}) }}>Cancelar</Button>
           </div>
         </form>
       </Modal>
 
       {/* MODAL PRODUCTO */}
-      <Modal open={productModal} onClose={() => { setProductModal(false); setEditProduct(null) }} title={editProduct ? 'Editar producto' : 'Crear producto'} wide>
-        <form onSubmit={handleProductSubmit} className="space-y-3">
-          <Input label="Nombre" name="nombre" value={productForm.nombre} onChange={(e) => setProductForm({ ...productForm, nombre: e.target.value })} required maxLength={200} />
+      <Modal open={productModal} onClose={() => { setProductModal(false); setEditProduct(null); setFormErrors({}) }} title={editProduct ? 'Editar producto' : 'Crear producto'} wide>
+        <form onSubmit={handleProductSubmit} className="space-y-3" noValidate>
+          <Input label="Nombre" name="nombre" value={productForm.nombre} onChange={(e) => { setProductForm({ ...productForm, nombre: e.target.value }); validateField('nombre', e.target.value, productRules, productForm) }} required maxLength={200} error={formErrors.nombre} />
           <Input label="Descripción" name="descripcion" value={productForm.descripcion} onChange={(e) => setProductForm({ ...productForm, descripcion: e.target.value })} maxLength={1000} />
           <div className="grid gap-3 sm:grid-cols-3">
-            <Input label="Precio (COP)" name="precio" type="number" value={productForm.precio} onChange={(e) => setProductForm({ ...productForm, precio: e.target.value })} required />
+            <Input label="Precio (COP)" name="precio" type="number" value={productForm.precio} onChange={(e) => { setProductForm({ ...productForm, precio: e.target.value }); validateField('precio', e.target.value, productRules, productForm) }} required error={formErrors.precio} />
             <Select label="Categoría" name="categoria_id" value={productForm.categoria_id} onChange={(e) => setProductForm({ ...productForm, categoria_id: e.target.value })} options={[{ value: '', label: 'Sin categoría' }, ...categories.map((c) => ({ value: c.id, label: c.nombre }))]} />
             <Input label="Stock" name="stock" type="number" value={productForm.stock} onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })} />
           </div>
           <div className="flex gap-3">
             <Button type="submit" fullWidth>{editProduct ? 'Guardar cambios' : 'Crear producto'}</Button>
-            <Button variant="ghost" type="button" onClick={() => { setProductModal(false); setEditProduct(null) }}>Cancelar</Button>
+            <Button variant="ghost" type="button" onClick={() => { setProductModal(false); setEditProduct(null); setFormErrors({}) }}>Cancelar</Button>
           </div>
         </form>
       </Modal>
 
       {/* MODAL SERVICIO */}
-      <Modal open={serviceModal} onClose={() => { setServiceModal(false); setEditService(null) }} title={editService ? 'Editar servicio' : 'Crear servicio'}>
-        <form onSubmit={handleServiceSubmit} className="space-y-3">
-          <Input label="Nombre" name="nombre" value={serviceForm.nombre} onChange={(e) => setServiceForm({ ...serviceForm, nombre: e.target.value })} required maxLength={200} />
+      <Modal open={serviceModal} onClose={() => { setServiceModal(false); setEditService(null); setFormErrors({}) }} title={editService ? 'Editar servicio' : 'Crear servicio'}>
+        <form onSubmit={handleServiceSubmit} className="space-y-3" noValidate>
+          <Input label="Nombre" name="nombre" value={serviceForm.nombre} onChange={(e) => { setServiceForm({ ...serviceForm, nombre: e.target.value }); validateField('nombre', e.target.value, serviceRules, serviceForm) }} required maxLength={200} error={formErrors.nombre} />
           <Input label="Descripción" name="descripcion" value={serviceForm.descripcion} onChange={(e) => setServiceForm({ ...serviceForm, descripcion: e.target.value })} maxLength={1000} />
-          <Input label="Precio (COP)" name="precio" type="number" value={serviceForm.precio} onChange={(e) => setServiceForm({ ...serviceForm, precio: e.target.value })} required />
+          <Input label="Precio (COP)" name="precio" type="number" value={serviceForm.precio} onChange={(e) => { setServiceForm({ ...serviceForm, precio: e.target.value }); validateField('precio', e.target.value, serviceRules, serviceForm) }} required error={formErrors.precio} />
           <div className="flex gap-3">
             <Button type="submit" fullWidth>{editService ? 'Guardar cambios' : 'Crear servicio'}</Button>
-            <Button variant="ghost" type="button" onClick={() => { setServiceModal(false); setEditService(null) }}>Cancelar</Button>
+            <Button variant="ghost" type="button" onClick={() => { setServiceModal(false); setEditService(null); setFormErrors({}) }}>Cancelar</Button>
           </div>
         </form>
       </Modal>
 
       {/* MODAL VUELO */}
-      <Modal open={flightModal} onClose={() => { setFlightModal(false); setEditFlight(null) }} title={editFlight ? 'Editar vuelo' : 'Crear vuelo'} wide>
-        <form onSubmit={handleFlightSubmit} className="space-y-3">
+      <Modal open={flightModal} onClose={() => { setFlightModal(false); setEditFlight(null); setFormErrors({}) }} title={editFlight ? 'Editar vuelo' : 'Crear vuelo'} wide>
+        <form onSubmit={handleFlightSubmit} className="space-y-3" noValidate>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="Aerolínea" name="aerolinea" value={flightForm.aerolinea} onChange={(e) => setFlightForm({ ...flightForm, aerolinea: e.target.value })} required maxLength={100} placeholder="Ej. Avianca" />
-            <Input label="Nº Vuelo" name="numero_vuelo" value={flightForm.numero_vuelo} onChange={(e) => setFlightForm({ ...flightForm, numero_vuelo: e.target.value })} required maxLength={20} placeholder="Ej. AV 123" />
+            <Input label="Aerolínea" name="aerolinea" value={flightForm.aerolinea} onChange={(e) => { setFlightForm({ ...flightForm, aerolinea: e.target.value }); validateField('aerolinea', e.target.value, flightRules, flightForm) }} required maxLength={100} placeholder="Ej. Avianca" error={formErrors.aerolinea} />
+            <Input label="Nº Vuelo" name="numero_vuelo" value={flightForm.numero_vuelo} onChange={(e) => { setFlightForm({ ...flightForm, numero_vuelo: e.target.value }); validateField('numero_vuelo', e.target.value, flightRules, flightForm) }} required maxLength={20} placeholder="Ej. AV 123" error={formErrors.numero_vuelo} />
           </div>
           <div className="grid gap-3 sm:grid-cols-4">
-            <Input label="Origen" name="origen" value={flightForm.origen} onChange={(e) => setFlightForm({ ...flightForm, origen: e.target.value })} required maxLength={100} placeholder="Ej. Bogotá" />
-            <Input label="Cód. Origen" name="codigo_origen" value={flightForm.codigo_origen} onChange={(e) => setFlightForm({ ...flightForm, codigo_origen: e.target.value })} required maxLength={10} placeholder="Ej. BOG" />
-            <Input label="Destino" name="destino" value={flightForm.destino} onChange={(e) => setFlightForm({ ...flightForm, destino: e.target.value })} required maxLength={100} placeholder="Ej. Cartagena" />
-            <Input label="Cód. Destino" name="codigo_destino" value={flightForm.codigo_destino} onChange={(e) => setFlightForm({ ...flightForm, codigo_destino: e.target.value })} required maxLength={10} placeholder="Ej. CTG" />
+            <Input label="Origen" name="origen" value={flightForm.origen} onChange={(e) => { setFlightForm({ ...flightForm, origen: e.target.value }); validateField('origen', e.target.value, flightRules, flightForm) }} required maxLength={100} placeholder="Ej. Bogotá" error={formErrors.origen} />
+            <Input label="Cód. Origen" name="codigo_origen" value={flightForm.codigo_origen} onChange={(e) => { setFlightForm({ ...flightForm, codigo_origen: e.target.value }); validateField('codigo_origen', e.target.value, flightRules, flightForm) }} required maxLength={10} placeholder="Ej. BOG" error={formErrors.codigo_origen} />
+            <Input label="Destino" name="destino" value={flightForm.destino} onChange={(e) => { setFlightForm({ ...flightForm, destino: e.target.value }); validateField('destino', e.target.value, flightRules, flightForm) }} required maxLength={100} placeholder="Ej. Cartagena" error={formErrors.destino} />
+            <Input label="Cód. Destino" name="codigo_destino" value={flightForm.codigo_destino} onChange={(e) => { setFlightForm({ ...flightForm, codigo_destino: e.target.value }); validateField('codigo_destino', e.target.value, flightRules, flightForm) }} required maxLength={10} placeholder="Ej. CTG" error={formErrors.codigo_destino} />
           </div>
           <div className="grid gap-3 sm:grid-cols-4">
-            <Input label="Fecha" name="fecha" type="date" value={flightForm.fecha} onChange={(e) => setFlightForm({ ...flightForm, fecha: e.target.value })} required />
-            <Input label="Hora Salida" name="hora_salida" value={flightForm.hora_salida} onChange={(e) => setFlightForm({ ...flightForm, hora_salida: e.target.value })} required maxLength={10} placeholder="Ej. 08:15" />
-            <Input label="Hora Llegada" name="hora_llegada" value={flightForm.hora_llegada} onChange={(e) => setFlightForm({ ...flightForm, hora_llegada: e.target.value })} required maxLength={10} placeholder="Ej. 09:40" />
-            <Input label="Duración" name="duracion" value={flightForm.duracion} onChange={(e) => setFlightForm({ ...flightForm, duracion: e.target.value })} required maxLength={20} placeholder="Ej. 1h 25m" />
+            <Input label="Fecha" name="fecha" type="date" value={flightForm.fecha} onChange={(e) => { setFlightForm({ ...flightForm, fecha: e.target.value }); validateField('fecha', e.target.value, flightRules, flightForm) }} required error={formErrors.fecha} />
+            <Input label="Hora Salida" name="hora_salida" value={flightForm.hora_salida} onChange={(e) => { setFlightForm({ ...flightForm, hora_salida: e.target.value }); validateField('hora_salida', e.target.value, flightRules, flightForm) }} required maxLength={10} placeholder="Ej. 08:15" error={formErrors.hora_salida} />
+            <Input label="Hora Llegada" name="hora_llegada" value={flightForm.hora_llegada} onChange={(e) => { setFlightForm({ ...flightForm, hora_llegada: e.target.value }); validateField('hora_llegada', e.target.value, flightRules, flightForm) }} required maxLength={10} placeholder="Ej. 09:40" error={formErrors.hora_llegada} />
+            <Input label="Duración" name="duracion" value={flightForm.duracion} onChange={(e) => { setFlightForm({ ...flightForm, duracion: e.target.value }); validateField('duracion', e.target.value, flightRules, flightForm) }} required maxLength={20} placeholder="Ej. 1h 25m" error={formErrors.duracion} />
           </div>
           <div className="grid gap-3 sm:grid-cols-4">
             <Select label="Escalas" name="escalas" value={flightForm.escalas} onChange={(e) => setFlightForm({ ...flightForm, escalas: e.target.value })} options={[{ value: 'Directo', label: 'Directo' }, { value: '1 escala', label: '1 escala' }, { value: '2 escalas', label: '2 escalas' }, { value: '3+ escalas', label: '3+ escalas' }]} />
             <Select label="Clase" name="clase" value={flightForm.clase} onChange={(e) => setFlightForm({ ...flightForm, clase: e.target.value })} options={[{ value: 'Económica', label: 'Económica' }, { value: 'Ejecutiva', label: 'Ejecutiva' }, { value: 'Primera Clase', label: 'Primera Clase' }]} />
-            <Input label="Precio (COP)" name="precio" type="number" value={flightForm.precio} onChange={(e) => setFlightForm({ ...flightForm, precio: e.target.value })} required />
+            <Input label="Precio (COP)" name="precio" type="number" value={flightForm.precio} onChange={(e) => { setFlightForm({ ...flightForm, precio: e.target.value }); validateField('precio', e.target.value, flightRules, flightForm) }} required error={formErrors.precio} />
             <Input label="Asientos" name="asientos_disponibles" type="number" value={flightForm.asientos_disponibles} onChange={(e) => setFlightForm({ ...flightForm, asientos_disponibles: e.target.value })} />
           </div>
           <div className="flex gap-3">
             <Button type="submit" fullWidth>{editFlight ? 'Guardar cambios' : 'Crear vuelo'}</Button>
-            <Button variant="ghost" type="button" onClick={() => { setFlightModal(false); setEditFlight(null) }}>Cancelar</Button>
+            <Button variant="ghost" type="button" onClick={() => { setFlightModal(false); setEditFlight(null); setFormErrors({}) }}>Cancelar</Button>
           </div>
         </form>
       </Modal>
