@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
-import { apiCreatePQR } from '../utils/api'
+import { apiCreatePQR, getToken } from '../utils/api'
 import { getSession } from '../utils/storage'
 
 /**
@@ -64,20 +65,24 @@ function Contacto() {
 
     setError('')
     const session = getSession()
+    const token = getToken()
 
-    if (session) {
-      setSending(true)
-      try {
-        const asunto = form.subject.trim() || `Consulta de ${form.name.trim()}`
-        const descripcion = `De: ${form.name.trim()} <${form.email.trim()}>\n\n${form.message.trim()}`
-        await apiCreatePQR({ tipo: 'Peticion', asunto, descripcion })
-      } catch (err) {
-        setError(err.message || 'No se pudo enviar el mensaje. Intenta de nuevo.')
-        setSending(false)
-        return
-      }
-      setSending(false)
+    if (!session || !token) {
+      setError('Inicia sesión para registrar tu PQR. Sin sesión el mensaje no se guarda en la plataforma.')
+      return
     }
+
+    setSending(true)
+    try {
+      const asunto = form.subject.trim() || `Consulta de ${form.name.trim()}`
+      const descripcion = `De: ${form.name.trim()} <${form.email.trim()}>\n\n${form.message.trim()}`
+      await apiCreatePQR({ tipo: 'Peticion', asunto, descripcion })
+    } catch (err) {
+      setError(err.message || 'No se pudo enviar el mensaje. Intenta de nuevo.')
+      setSending(false)
+      return
+    }
+    setSending(false)
 
     setSent(true)
     setForm({ name: '', email: '', subject: '', message: '' })
@@ -124,7 +129,9 @@ function Contacto() {
                   ¡Mensaje enviado con éxito! 🎉
                 </strong>
                 <p className="mt-1 text-sm text-emerald-600 dark:text-emerald-400">
-                  Gracias por escribirnos. Te contactaremos muy pronto.
+                  {getSession()
+                    ? 'Tu PQR quedó registrada en la plataforma. Te contactaremos muy pronto.'
+                    : 'Gracias por escribirnos. Te contactaremos muy pronto.'}
                 </p>
               </div>
             )}
@@ -210,8 +217,22 @@ function Contacto() {
               </div>
 
               {error && (
-                <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600 animate-fade-in dark:bg-rose-500/15 dark:text-rose-400">
-                  ⚠️ {error}
+                <div role="alert" className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600 animate-fade-in dark:bg-rose-500/15 dark:text-rose-400">
+                  <p>⚠️ {error}</p>
+                  {error.includes('Inicia sesión') && (
+                    <p className="mt-2">
+                      <Link to="/login" className="font-semibold underline underline-offset-2">
+                        Ir a iniciar sesión
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!getSession() && (
+                <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+                  Para que tu PQR quede registrada en la plataforma necesitas
+                  tener una cuenta e iniciar sesión.
                 </p>
               )}
 

@@ -29,7 +29,10 @@ export default function PQRPage() {
     try { const d = await apiGetPQRs(params); setPqrList(d.pqr) }
     catch (err) { setError(err.message) }
   }
-  const loadStats = async () => { try { const d = await apiGetPQRStats(); setStats(d) } catch {} }
+  const loadStats = async () => {
+    try { const d = await apiGetPQRStats(); setStats(d) }
+    catch (err) { console.error('Error al cargar estadísticas PQR:', err) }
+  }
   const loadUsers = async () => { try { const d = await apiGetUsers(); setUsers(d.usuarios) } catch {} }
 
   const clearMessages = () => { setError(''); setSuccess('') }
@@ -49,6 +52,7 @@ export default function PQRPage() {
       setSuccess('PQR registrado exitosamente.')
       setCreateModal(false); setForm({ tipo: 'Peticion', asunto: '', descripcion: '' })
       loadPQRs()
+      if (isAdmin) loadStats()
     } catch (err) { setError(err.message) }
   }
 
