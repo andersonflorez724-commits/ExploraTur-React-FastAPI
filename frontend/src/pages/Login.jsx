@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
+import Modal from '../components/ui/Modal'
 import RegisterModal from '../components/auth/RegisterModal'
 import { apiLogin, apiLogout } from '../utils/api'
 import { saveSession, clearSession } from '../utils/storage'
@@ -26,6 +27,7 @@ function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [session, setSession] = useState(null)
+  const [greetingOpen, setGreetingOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
 
   const handleChange = (e) => {
@@ -54,6 +56,7 @@ function Login() {
       // Guardar sesión en localStorage para compatibilidad
       saveSession(user, remember)
       setSession(user)
+      setGreetingOpen(true)
       window.dispatchEvent(new Event('session-changed'))
     } catch (err) {
       setError(err.message || 'Correo o contraseña incorrectos.')
@@ -69,6 +72,24 @@ function Login() {
     setForm(INITIAL_FORM)
     setErrors({})
     window.dispatchEvent(new Event('session-changed'))
+  }
+
+  const goToPanel = () => {
+    if (!session) return
+    if (session.rol === 'Administrador') navigate('/admin')
+    else if (session.rol === 'Empleado') navigate('/empleado')
+    else navigate('/cliente')
+  }
+
+  // El saludo de bienvenida se muestra en un Modal, igual que la confirmación de registro
+  const closeGreeting = () => {
+    setGreetingOpen(false)
+    goToPanel()
+  }
+
+  const handleGreetingLogout = () => {
+    setGreetingOpen(false)
+    handleLogout()
   }
 
   return (
@@ -110,15 +131,10 @@ function Login() {
                 {session.rol}
               </span>
               <div className="mt-6 flex flex-col gap-3">
-                <Button fullWidth onClick={() => {
-                  // Redirigir según el rol
-                  if (session.rol === 'Administrador') navigate('/admin')
-                  else if (session.rol === 'Empleado') navigate('/empleado')
-                  else navigate('/cliente')
-                }}>
+                <Button fullWidth onClick={closeGreeting}>
                   Ir al panel
                 </Button>
-                <Button variant="ghost" fullWidth onClick={handleLogout}>
+                <Button variant="ghost" fullWidth onClick={handleGreetingLogout}>
                   Cerrar sesión
                 </Button>
               </div>
@@ -203,6 +219,33 @@ function Login() {
           Página principal → Inicio de sesión → Registro de cliente mediante Modal → Validación de datos → Confirmación del registro
         </p>
       </div>
+
+      {/* Modal de saludo al iniciar sesión (mismo estilo que la confirmación de registro) */}
+      <Modal open={greetingOpen && !!session} onClose={closeGreeting} title="Bienvenido">
+        <div className="text-center animate-slide-up">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl dark:bg-emerald-500/20">
+            👋
+          </div>
+          <h3 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100">
+            ¡Hola, {session?.nombre}!
+          </h3>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Has iniciado sesión correctamente en <strong className="text-slate-700 dark:text-slate-200">ExploraTur</strong>. ¡Qué bueno verte de nuevo!
+          </p>
+          <div className="mt-4 rounded-xl bg-slate-50 p-4 text-left text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+            <p>📧 <strong>{session?.email}</strong></p>
+            <p className="mt-1">👤 {session?.rol}</p>
+          </div>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button variant="primary" onClick={closeGreeting}>
+              Ir al panel
+            </Button>
+            <Button variant="ghost" onClick={handleGreetingLogout}>
+              Cerrar sesión
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal de registro de clientes */}
       <RegisterModal

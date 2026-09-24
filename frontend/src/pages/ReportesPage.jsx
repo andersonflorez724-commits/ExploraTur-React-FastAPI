@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import { apiGetDailyReport } from '../utils/api'
+import { getLogoDataURL } from '../utils/logo'
 
 const formatPrice = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
 
@@ -26,16 +27,21 @@ export default function ReportesPage() {
     const { default: autoTable } = await import('jspdf-autotable')
 
     const doc = new jsPDF()
+    const logo = await getLogoDataURL()
+    const titleX = logo ? 34 : 14
+    if (logo) doc.addImage(logo, 'PNG', 14, 12, 16, 16)
 
-    doc.setFontSize(18)
-    doc.text('ExploraTur - Reporte Diario de Ventas', 14, 22)
-
+    doc.setFontSize(17)
+    doc.text('ExploraTur', titleX, 20)
     doc.setFontSize(11)
-    doc.text(`Fecha: ${reporte.fecha}`, 14, 32)
-    doc.text(`Total Ventas: ${reporte.resumen.total_ventas}`, 14, 40)
-    doc.text(`Total Ingresos: ${formatPrice(reporte.resumen.total_ingresos)}`, 14, 48)
-    doc.text(`Impuestos: ${formatPrice(reporte.resumen.total_impuestos)}`, 14, 56)
-    doc.text(`Descuentos: ${formatPrice(reporte.resumen.total_descuentos)}`, 14, 64)
+    doc.text('Reporte Diario de Ventas', titleX, 27)
+
+    doc.setFontSize(10)
+    doc.text(`Fecha: ${reporte.fecha}`, 14, 40)
+    doc.text(`Total Ventas: ${reporte.resumen.total_ventas}`, 14, 47)
+    doc.text(`Total Ingresos: ${formatPrice(reporte.resumen.total_ingresos)}`, 14, 54)
+    doc.text(`Impuestos: ${formatPrice(reporte.resumen.total_impuestos)}`, 14, 61)
+    doc.text(`Descuentos: ${formatPrice(reporte.resumen.total_descuentos)}`, 14, 68)
 
     const rows = reporte.ventas.map(v => [
       v.numero_venta,
@@ -43,16 +49,27 @@ export default function ReportesPage() {
       v.cliente,
       v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
       formatPrice(v.subtotal),
+      formatPrice(v.impuestos || 0),
+      formatPrice(v.descuento || 0),
       formatPrice(v.total),
       v.estado,
     ])
 
     autoTable(doc, {
-      startY: 72,
-      head: [['N° Venta', 'Hora', 'Cliente', 'Items', 'Subtotal', 'Total', 'Estado']],
+      startY: 76,
+      head: [['N° Venta', 'Hora', 'Cliente', 'Items', 'Subtotal', 'Impuestos', 'Descuento', 'Total', 'Estado']],
       body: rows,
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
       headStyles: { fillColor: [99, 102, 241] },
+      columnStyles: {
+        0: { cellWidth: 17 },
+        1: { cellWidth: 13 },
+        4: { cellWidth: 21 },
+        5: { cellWidth: 21 },
+        6: { cellWidth: 21 },
+        7: { cellWidth: 21 },
+        8: { cellWidth: 17 },
+      },
     })
 
     doc.save(`Reporte_Ventas_${fecha}.pdf`)
@@ -144,6 +161,8 @@ export default function ReportesPage() {
                   <th className="px-4 py-3">Cliente</th>
                   <th className="px-4 py-3">Items</th>
                   <th className="px-4 py-3">Subtotal</th>
+                  <th className="px-4 py-3">Impuestos</th>
+                  <th className="px-4 py-3">Descuento</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Estado</th>
                 </tr>
@@ -156,13 +175,15 @@ export default function ReportesPage() {
                     <td className="px-4 py-3 text-slate-500">{v.cliente}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 max-w-xs truncate">{v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td>
                     <td className="px-4 py-3 text-slate-500">{formatPrice(v.subtotal)}</td>
+                    <td className="px-4 py-3 text-amber-600">{formatPrice(v.impuestos || 0)}</td>
+                    <td className="px-4 py-3 text-rose-600">{formatPrice(v.descuento || 0)}</td>
                     <td className="px-4 py-3 font-semibold text-brand-600">{formatPrice(v.total)}</td>
                     <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                       v.estado === 'Completada' ? 'bg-emerald-50 text-emerald-700' : v.estado === 'Cancelada' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'
                     }`}>{v.estado}</span></td>
                   </tr>
                 ))}
-                {reporte.ventas.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">No hay ventas para esta fecha.</td></tr>}
+                {reporte.ventas.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">No hay ventas para esta fecha.</td></tr>}
               </tbody>
             </table>
           </div>
