@@ -179,15 +179,23 @@ def comprar_vuelo(
         )
 
     precio = decimal.Decimal(str(vuelo.precio))
-    subtotal = precio * data.cantidad
+    bruto = precio * data.cantidad
+
+    pct_descuento = decimal.Decimal(str(vuelo.descuento_porcentaje or 0)) / decimal.Decimal("100")
+    pct_impuesto = decimal.Decimal(str(vuelo.impuesto_porcentaje or 0)) / decimal.Decimal("100")
+
+    descuento = (bruto * pct_descuento).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
+    base = bruto - descuento
+    impuestos = (base * pct_impuesto).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
+    total = base + impuestos
 
     venta = Venta(
         usuario_id=current_user["id"],
         cliente_id=current_user["id"],
-        subtotal=subtotal,
-        impuestos=decimal.Decimal("0"),
-        descuento=decimal.Decimal("0"),
-        total=subtotal,
+        subtotal=bruto,
+        impuestos=impuestos,
+        descuento=descuento,
+        total=total,
         estado="Confirmada",
         observaciones=(
             f"Compra online: vuelo {vuelo.numero_vuelo} "
@@ -203,8 +211,8 @@ def comprar_vuelo(
         item_id=vuelo.id,
         cantidad=data.cantidad,
         precio_unitario=precio,
-        descuento=decimal.Decimal("0"),
-        subtotal=subtotal,
+        descuento=descuento,
+        subtotal=bruto,
     ))
 
     vuelo.asientos_disponibles -= data.cantidad
@@ -215,10 +223,10 @@ def comprar_vuelo(
         venta_id=venta.id,
         cliente_id=current_user["id"],
         usuario_id=current_user["id"],
-        subtotal=subtotal,
-        impuestos=decimal.Decimal("0"),
-        descuento=decimal.Decimal("0"),
-        total=subtotal,
+        subtotal=bruto,
+        impuestos=impuestos,
+        descuento=descuento,
+        total=total,
         estado="Pagada",
         fecha_vencimiento=None,
     )

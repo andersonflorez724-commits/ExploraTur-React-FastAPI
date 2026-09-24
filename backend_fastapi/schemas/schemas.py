@@ -394,6 +394,8 @@ class FlightRequest(BaseModel):
     duracion: str
     escalas: Optional[str] = "Directo"
     precio: float
+    impuesto_porcentaje: float = 19
+    descuento_porcentaje: float = 5
     clase: Optional[str] = "Económica"
     asientos_disponibles: int = 50
 
@@ -418,6 +420,13 @@ class FlightRequest(BaseModel):
             raise ValueError("El precio debe ser un número positivo.")
         return v
 
+    @field_validator("impuesto_porcentaje", "descuento_porcentaje")
+    @classmethod
+    def validate_porcentaje(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError("El porcentaje debe estar entre 0 y 100.")
+        return v
+
 
 class FlightUpdateRequest(BaseModel):
     aerolinea: str
@@ -432,9 +441,18 @@ class FlightUpdateRequest(BaseModel):
     duracion: str
     escalas: Optional[str] = "Directo"
     precio: float
+    impuesto_porcentaje: float = 19
+    descuento_porcentaje: float = 5
     clase: Optional[str] = "Económica"
     asientos_disponibles: int = 50
     estado: Optional[str] = "Activo"
+
+    @field_validator("impuesto_porcentaje", "descuento_porcentaje")
+    @classmethod
+    def validate_porcentaje(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError("El porcentaje debe estar entre 0 y 100.")
+        return v
 
 
 # =====================================================

@@ -35,6 +35,25 @@ const formatDate = (date) =>
     month: 'short',
   })
 
+const round2 = (n) => Math.round(n * 100) / 100
+
+// Descuento e impuestos del vuelo (mismos cálculos que el backend)
+const calcTotals = (flight, passengers) => {
+  const bruto = Number(flight.precio) * Number(passengers)
+  const pctDesc = Number(flight.descuento_porcentaje ?? 5)
+  const pctImp = Number(flight.impuesto_porcentaje ?? 19)
+  const descuento = round2((bruto * pctDesc) / 100)
+  const impuestos = round2(((bruto - descuento) * pctImp) / 100)
+  return {
+    bruto,
+    pctDesc,
+    pctImp,
+    descuento,
+    impuestos,
+    total: bruto - descuento + impuestos,
+  }
+}
+
 /**
  * Apartado de vuelos: catálogo de vuelos con búsqueda,
  * compra y favoritos. Comprar y guardar en favoritos solo
@@ -165,6 +184,8 @@ function Vuelos() {
   const isFavorite = (id) => favorites.includes(id)
 
   const favoriteFlights = flights.filter((f) => favorites.includes(f.id))
+
+  const totals = pendingFlight ? calcTotals(pendingFlight, Number(search.passengers) || 1) : null
 
   const authMessages = {
     buy: {
@@ -602,7 +623,7 @@ function Vuelos() {
                 </p>
                 <p className="mt-1">🧑 {search.passengers} pasajeros</p>
                 <p className="mt-1 font-semibold text-brand-600 dark:text-brand-400">
-                  Total: {formatPrice(pendingFlight.precio * Number(search.passengers))}
+                  Total: {formatPrice(totals.total)}
                 </p>
               </div>
               <div className="mt-6">
@@ -637,13 +658,27 @@ function Vuelos() {
                 <p className="mt-3 text-center text-xs capitalize text-slate-400 dark:text-slate-500">{formatDate(pendingFlight.fecha)}</p>
               </div>
 
-              <div className="mt-5 flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
-                <span className="text-slate-500 dark:text-slate-400">
-                  {Number(search.passengers)} × {formatPrice(pendingFlight.precio)}
-                </span>
-                <strong className="font-display text-lg text-brand-600 dark:text-brand-400">
-                  {formatPrice(pendingFlight.precio * Number(search.passengers))}
-                </strong>
+              <div className="mt-5 space-y-2 rounded-2xl border border-slate-100 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                  <span>
+                    {Number(search.passengers)} × {formatPrice(pendingFlight.precio)}
+                  </span>
+                  <span>{formatPrice(totals.bruto)}</span>
+                </div>
+                <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
+                  <span>Descuento ({totals.pctDesc}%)</span>
+                  <span>-{formatPrice(totals.descuento)}</span>
+                </div>
+                <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                  <span>Impuestos ({totals.pctImp}%)</span>
+                  <span>{formatPrice(totals.impuestos)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2 font-semibold dark:border-slate-800">
+                  <span className="text-slate-700 dark:text-slate-200">Total</span>
+                  <strong className="font-display text-lg text-brand-600 dark:text-brand-400">
+                    {formatPrice(totals.total)}
+                  </strong>
+                </div>
               </div>
 
               <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">

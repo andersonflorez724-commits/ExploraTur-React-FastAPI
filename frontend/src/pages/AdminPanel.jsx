@@ -54,6 +54,7 @@ const INITIAL_FLIGHT = {
   aerolinea: '', numero_vuelo: '', origen: '', codigo_origen: '',
   destino: '', codigo_destino: '', fecha: '', hora_salida: '',
   hora_llegada: '', duracion: '', escalas: 'Directo', precio: '',
+  impuesto_porcentaje: 19, descuento_porcentaje: 5,
   clase: 'Económica', asientos_disponibles: 50,
 }
 
@@ -178,6 +179,16 @@ function AdminPanel() {
     precio: (v) => {
       const n = parseFloat(v)
       if (isNaN(n) || n < 0) return 'El precio debe ser un número positivo.'
+      return null
+    },
+    impuesto_porcentaje: (v) => {
+      const n = parseFloat(v)
+      if (isNaN(n) || n < 0 || n > 100) return 'El impuesto debe estar entre 0 y 100.'
+      return null
+    },
+    descuento_porcentaje: (v) => {
+      const n = parseFloat(v)
+      if (isNaN(n) || n < 0 || n > 100) return 'El descuento debe estar entre 0 y 100.'
       return null
     },
   }
@@ -321,7 +332,13 @@ function AdminPanel() {
     const errors = validateForm(flightForm, flightRules)
     if (Object.keys(errors).length > 0) { setFormErrors(errors); setError('Corrige los errores antes de continuar.'); return }
     setFormErrors({})
-    const payload = { ...flightForm, precio: parseFloat(flightForm.precio) || 0, asientos_disponibles: parseInt(flightForm.asientos_disponibles) || 50 }
+    const payload = {
+      ...flightForm,
+      precio: parseFloat(flightForm.precio) || 0,
+      impuesto_porcentaje: isNaN(parseFloat(flightForm.impuesto_porcentaje)) ? 19 : parseFloat(flightForm.impuesto_porcentaje),
+      descuento_porcentaje: isNaN(parseFloat(flightForm.descuento_porcentaje)) ? 5 : parseFloat(flightForm.descuento_porcentaje),
+      asientos_disponibles: parseInt(flightForm.asientos_disponibles) || 50,
+    }
     try {
       if (editFlight) { await apiUpdateFlight(editFlight.id, payload); setSuccess('Vuelo actualizado.') }
       else { await apiCreateFlight(payload); setSuccess('Vuelo creado.') }
@@ -335,6 +352,7 @@ function AdminPanel() {
       destino: f.destino, codigo_destino: f.codigo_destino, fecha: f.fecha ? f.fecha.split('T')[0] : '',
       hora_salida: f.hora_salida, hora_llegada: f.hora_llegada, duracion: f.duracion, escalas: f.escalas || 'Directo',
       precio: f.precio, clase: f.clase || 'Económica', asientos_disponibles: f.asientos_disponibles || 50,
+      impuesto_porcentaje: f.impuesto_porcentaje ?? 19, descuento_porcentaje: f.descuento_porcentaje ?? 5,
     })
     setFlightModal(true)
   }
@@ -538,6 +556,7 @@ function AdminPanel() {
                   <th className="px-4 py-3">Fecha</th>
                   <th className="px-4 py-3">Horario</th>
                   <th className="px-4 py-3">Precio</th>
+                  <th className="px-4 py-3">Imp. / Desc.</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
@@ -551,6 +570,7 @@ function AdminPanel() {
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{f.fecha ? new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-CO') : ''}</td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{f.hora_salida} – {f.hora_llegada}</td>
                     <td className="px-4 py-3 font-semibold text-brand-600 dark:text-brand-400">{formatPrice(f.precio)}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{f.impuesto_porcentaje ?? 19}% / {f.descuento_porcentaje ?? 5}%</td>
                     <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${f.estado === 'Activo' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'}`}>{f.estado}</span></td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -561,7 +581,7 @@ function AdminPanel() {
                     </td>
                   </tr>
                 ))}
-                {flights.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">No hay vuelos registrados.</td></tr>}
+                {flights.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">No hay vuelos registrados.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -682,6 +702,10 @@ function AdminPanel() {
             <Select label="Clase" name="clase" value={flightForm.clase} onChange={(e) => setFlightForm({ ...flightForm, clase: e.target.value })} options={[{ value: 'Económica', label: 'Económica' }, { value: 'Ejecutiva', label: 'Ejecutiva' }, { value: 'Primera Clase', label: 'Primera Clase' }]} />
             <Input label="Precio (COP)" name="precio" type="number" value={flightForm.precio} onChange={(e) => { setFlightForm({ ...flightForm, precio: e.target.value }); validateField('precio', e.target.value, flightRules, flightForm) }} required error={formErrors.precio} />
             <Input label="Asientos" name="asientos_disponibles" type="number" value={flightForm.asientos_disponibles} onChange={(e) => setFlightForm({ ...flightForm, asientos_disponibles: e.target.value })} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="Impuesto %" name="impuesto_porcentaje" type="number" min="0" max="100" value={flightForm.impuesto_porcentaje} onChange={(e) => { setFlightForm({ ...flightForm, impuesto_porcentaje: e.target.value }); validateField('impuesto_porcentaje', e.target.value, flightRules, flightForm) }} required error={formErrors.impuesto_porcentaje} placeholder="Ej. 19" />
+            <Input label="Descuento %" name="descuento_porcentaje" type="number" min="0" max="100" value={flightForm.descuento_porcentaje} onChange={(e) => { setFlightForm({ ...flightForm, descuento_porcentaje: e.target.value }); validateField('descuento_porcentaje', e.target.value, flightRules, flightForm) }} required error={formErrors.descuento_porcentaje} placeholder="Ej. 5" />
           </div>
           <div className="flex gap-3">
             <Button type="submit" fullWidth>{editFlight ? 'Guardar cambios' : 'Crear vuelo'}</Button>

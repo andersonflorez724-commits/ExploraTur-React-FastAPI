@@ -126,6 +126,8 @@ class Vuelo(Base):
     duracion = Column(String(20), nullable=False)
     escalas = Column(String(50), default="Directo")
     precio = Column(DECIMAL(12, 2), nullable=False)
+    impuesto_porcentaje = Column(DECIMAL(5, 2), nullable=False, default=19)
+    descuento_porcentaje = Column(DECIMAL(5, 2), nullable=False, default=5)
     clase = Column(String(50), default="Económica")
     asientos_disponibles = Column(Integer, default=50)
     estado = Column(Enum("Activo", "Inactivo", name="estado_vuelo_enum"), nullable=False, default="Activo")

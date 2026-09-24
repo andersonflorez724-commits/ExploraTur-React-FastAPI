@@ -281,6 +281,95 @@ def migrate_enums():
 
 
 # =====================================================
+# Migración ligera: impuestos y descuentos por vuelo
+# =====================================================
+def migrate_vuelos_impuestos():
+    """Agrega las columnas de % de impuesto y % de descuento a la tabla vuelos."""
+    from sqlalchemy import text, inspect
+
+    try:
+        inspector = inspect(engine)
+        if not inspector.has_table("vuelos"):
+            return
+        existing = {col["name"] for col in inspector.get_columns("vuelos")}
+        alters = []
+        if "impuesto_porcentaje" not in existing:
+            alters.append(
+                "ALTER TABLE vuelos ADD COLUMN impuesto_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 19"
+            )
+        if "descuento_porcentaje" not in existing:
+            alters.append(
+                "ALTER TABLE vuelos ADD COLUMN descuento_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 5"
+            )
+        for stmt in alters:
+            with engine.begin() as conn:
+                conn.execute(text(stmt))
+            print(f"[OK] Vuelos migration: {stmt.split('ADD COLUMN ')[1].split(' ')[0]} added")
+    except Exception as e:
+        print(f"[WARN] Vuelos migration skipped: {e}")
+
+
+def backfill_impuestos_vuelos():
+    """Recalcula impuestos y descuentos de las ventas de vuelos registradas en 0."""
+    from decimal import Decimal, ROUND_HALF_UP
+    from models.models import Venta, DetalleVenta, Vuelo, Factura
+
+    db = SessionLocal()
+    try:
+        ventas = (
+            db.query(Venta)
+            .join(DetalleVenta, DetalleVenta.venta_id == Venta.id)
+            .filter(DetalleVenta.tipo_item == "Vuelo")
+            .filter(Venta.impuestos == 0, Venta.descuento == 0)
+            .distinct()
+            .all()
+        )
+
+        actualizadas = 0
+        for venta in ventas:
+            detalles_vuelo = [d for d in venta.detalles if d.tipo_item == "Vuelo"]
+            if not detalles_vuelo:
+                continue
+            vuelo = db.query(Vuelo).filter(Vuelo.id == detalles_vuelo[0].item_id).first()
+            if not vuelo:
+                continue
+
+            pct_desc = Decimal(str(vuelo.descuento_porcentaje or 0)) / Decimal("100")
+            pct_imp = Decimal(str(vuelo.impuesto_porcentaje or 0)) / Decimal("100")
+
+            bruto = Decimal(str(venta.subtotal))
+            descuento = (bruto * pct_desc).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            base = bruto - descuento
+            impuestos = (base * pct_imp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+            venta.descuento = descuento
+            venta.impuestos = impuestos
+            venta.total = base + impuestos
+
+            for d in detalles_vuelo:
+                d.descuento = (Decimal(str(d.subtotal)) * pct_desc).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+
+            for factura in db.query(Factura).filter(Factura.venta_id == venta.id).all():
+                factura.descuento = descuento
+                factura.impuestos = impuestos
+                factura.total = base + impuestos
+
+            actualizadas += 1
+
+        if actualizadas:
+            db.commit()
+            print(f"[OK] Backfill impuestos/descuentos: {actualizadas} ventas de vuelo actualizadas")
+        else:
+            print("[OK] Backfill impuestos/descuentos: nada que actualizar")
+    except Exception as e:
+        print(f"[WARN] Backfill impuestos/descuentos: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+# =====================================================
 # Evento de inicio
 # =====================================================
 @app.on_event("startup")
@@ -293,6 +382,8 @@ def startup_event():
             Base.metadata.create_all(bind=engine)
             print("[OK] Tables verified/created successfully")
             migrate_enums()
+            migrate_vuelos_impuestos()
+            backfill_impuestos_vuelos()
             seed_roles()
             seed_users()
             seed_flights()

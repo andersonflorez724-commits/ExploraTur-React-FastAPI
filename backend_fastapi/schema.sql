@@ -192,6 +192,8 @@ CREATE TABLE IF NOT EXISTS vuelos (
   duracion VARCHAR(20) NOT NULL,
   escalas VARCHAR(50) DEFAULT 'Directo',
   precio DECIMAL(12, 2) NOT NULL,
+  impuesto_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 19,
+  descuento_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 5,
   clase VARCHAR(50) DEFAULT 'Económica',
   asientos_disponibles INT DEFAULT 50,
   estado ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',

@@ -32,6 +32,8 @@ def flight_to_dict(flight: Vuelo) -> dict:
         "duracion": flight.duracion,
         "escalas": flight.escalas,
         "precio": float(flight.precio),
+        "impuesto_porcentaje": float(flight.impuesto_porcentaje or 0),
+        "descuento_porcentaje": float(flight.descuento_porcentaje or 0),
         "clase": flight.clase,
         "asientos_disponibles": flight.asientos_disponibles,
         "estado": flight.estado,
@@ -150,6 +152,8 @@ def create_flight(
         duracion=data.duracion,
         escalas=data.escalas or "Directo",
         precio=data.precio,
+        impuesto_porcentaje=data.impuesto_porcentaje,
+        descuento_porcentaje=data.descuento_porcentaje,
         clase=data.clase or "Económica",
         asientos_disponibles=data.asientos_disponibles or 50,
     )
@@ -201,6 +205,8 @@ def update_flight(
     flight.duracion = data.duracion
     flight.escalas = data.escalas or "Directo"
     flight.precio = data.precio
+    flight.impuesto_porcentaje = data.impuesto_porcentaje
+    flight.descuento_porcentaje = data.descuento_porcentaje
     flight.clase = data.clase or "Económica"
     flight.asientos_disponibles = data.asientos_disponibles or 50
     flight.estado = data.estado or "Activo"
