@@ -3,12 +3,15 @@ Rutas del chatbot con integración de Inteligencia Artificial (Google Gemini).
 """
 
 import os
+import re
 import uuid
+import unicodedata
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from config.database import get_db
-from models.models import Conversacion, Mensaje, Producto, Servicio
+from models.models import Conversacion, Mensaje, Producto, Servicio, Vuelo
 from schemas.schemas import ChatbotRequest, ChatbotResponse
 from middleware.auth import get_current_user
 
@@ -100,6 +103,116 @@ Usa entre 3 y 6 oraciones. Si la pregunta es compleja o implica varios pasos, re
 No inventes precios, disponibilidad ni políticas: cuando falte un dato concreto, indícalo y ofrece el canal de contacto."""
 
 
+# =====================================================
+# Contexto real: datos de la base de datos para el modelo
+# =====================================================
+def normalizar(texto: str) -> str:
+    """Quita tildes y pasa a minúsculas para comparar palabras clave."""
+    texto = unicodedata.normalize("NFD", texto or "")
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return texto.lower()
+
+
+def formato_precio(valor) -> str:
+    """Precio en pesos colombianos: 460000 -> '460.000'."""
+    try:
+        return f"{float(valor):,.0f}".replace(",", ".")
+    except (TypeError, ValueError):
+        return str(valor)
+
+
+def recortar(texto, limite: int = 90) -> str:
+    texto = (texto or "").strip().replace("\n", " ")
+    return texto if len(texto) <= limite else texto[:limite].rstrip() + "…"
+
+
+def formato_vuelo(v: Vuelo) -> str:
+    iva = float(v.impuesto_porcentaje or 0)
+    descuento = float(v.descuento_porcentaje or 0)
+    return (
+        f"- {v.numero_vuelo} · {v.aerolinea} · {v.origen} ({v.codigo_origen}) → "
+        f"{v.destino} ({v.codigo_destino}) · {v.fecha} · sale {v.hora_salida}, "
+        f"llega {v.hora_llegada} · {v.duracion} · {v.escalas} · clase {v.clase} · "
+        f"${formato_precio(v.precio)} COP por persona · "
+        f"{v.asientos_disponibles or 0} asientos · IVA {iva}% · descuento {descuento}%"
+    )
+
+
+def construir_contexto(db: Session, mensaje: str) -> str:
+    """Trae vuelos, productos y servicios reales de la DB para el prompt.
+
+    Sin estos datos el modelo solo puede ser vago ("consulte con un asesor");
+    con ellos responde con precios, fechas y números de vuelo exactos.
+    """
+    try:
+        hoy = date.today()
+        claves = {p for p in re.split(r"[^a-z0-9]+", normalizar(mensaje)) if len(p) >= 3}
+
+        activos = db.query(Vuelo).filter(Vuelo.estado == "Activo").order_by(Vuelo.fecha.asc()).all()
+
+        coincidencias = [
+            v for v in activos
+            if any(
+                k in normalizar(
+                    f"{v.destino} {v.origen} {v.codigo_destino} {v.codigo_origen} {v.aerolinea}"
+                )
+                for k in claves
+            )
+        ]
+        futuros = [v for v in activos if v.fecha and v.fecha >= hoy]
+        seleccion = (coincidencias or futuros or activos)[:8]
+
+        productos = (
+            db.query(Producto).filter(Producto.estado == "Activo")
+            .order_by(Producto.id.desc()).limit(6).all()
+        )
+        servicios = (
+            db.query(Servicio).filter(Servicio.estado == "Activo")
+            .order_by(Servicio.id.desc()).limit(6).all()
+        )
+
+        lineas = [
+            f"DATOS REALES DE LA BASE DE DATOS DE ExploraTur (hoy es {hoy.isoformat()}):",
+            "",
+            f"VUELOS EN VENTA ({len(seleccion)}):",
+        ]
+        if seleccion:
+            lineas += [formato_vuelo(v) for v in seleccion]
+        else:
+            lineas.append("- Ahora mismo no hay vuelos registrados en la base.")
+
+        destinos = sorted({f"{v.destino} ({v.codigo_destino})" for v in activos})
+        if destinos:
+            lineas.append(f"- Destinos con vuelos en la base: {', '.join(destinos)}.")
+
+        if productos:
+            lineas += ["", f"PRODUCTOS ACTIVOS ({len(productos)}):"]
+            lineas += [
+                f"- {p.nombre} · ${formato_precio(p.precio)} COP · stock {p.stock} · {recortar(p.descripcion)}"
+                for p in productos
+            ]
+
+        if servicios:
+            lineas += ["", f"SERVICIOS ACTIVOS ({len(servicios)}):"]
+            lineas += [
+                f"- {s.nombre} · ${formato_precio(s.precio)} COP · {recortar(s.descripcion)}"
+                for s in servicios
+            ]
+
+        lineas += [
+            "",
+            "REGLAS PARA RESPONDER CON DATOS EXACTOS:",
+            "1. Usa SOLO las cifras, fechas, horarios y números de vuelo de esta lista, escritos tal cual.",
+            "2. Si la ruta, el producto o el servicio consultado NO aparece en la lista, dilo claramente y ofrece los destinos disponibles o el canal de contacto: no inventes.",
+            "3. Los vuelos se venden por persona; al comprar se aplica el descuento y el IVA que aparecen en cada uno.",
+            "4. Para preguntas que no son de catálogo (horarios de la empresa, PQR, pasos para comprar), respóndelas normalmente con tu instrucción de sistema.",
+        ]
+        return "\n".join(lineas)
+    except Exception as e:
+        print(f"[CHATBOT WARN] No se pudo construir el contexto: {e}")
+        return ""
+
+
 def build_gemini_contents(user_message: str, conversation_history: list = None) -> list:
     """Convierte el historial de la BD al formato de 'contents' de Gemini."""
     contents = []
@@ -131,7 +244,13 @@ def build_gemini_contents(user_message: str, conversation_history: list = None) 
     return contents
 
 
-def call_gemini(api_key: str, model: str, contents: list, deshabilitar_thinking: bool = True) -> tuple:
+def call_gemini(
+    api_key: str,
+    model: str,
+    contents: list,
+    deshabilitar_thinking: bool = True,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> tuple:
     """Hace una llamada a Gemini. Devuelve (texto, finish_reason).
 
     Lanza GeminiAPIError si la API responde con un error HTTP.
@@ -156,7 +275,7 @@ def call_gemini(api_key: str, model: str, contents: list, deshabilitar_thinking:
     )
 
     payload = json.dumps({
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": contents,
         "generationConfig": generation_config,
     }).encode("utf-8")
@@ -188,14 +307,22 @@ def call_gemini(api_key: str, model: str, contents: list, deshabilitar_thinking:
     return texto, candidate.get("finishReason")
 
 
-def get_gemini_response(user_message: str, conversation_history: list = None) -> str:
+def get_gemini_response(
+    user_message: str,
+    conversation_history: list = None,
+    contexto: str = "",
+) -> str:
     """Genera la respuesta con Gemini, reintentando y cambiando de modelo si falla."""
     import time
+
+    system_prompt = SYSTEM_PROMPT
+    if contexto:
+        system_prompt = f"{SYSTEM_PROMPT}\n\n{contexto}"
 
     api_key = get_api_key()
     if not api_key:
         print("[CHATBOT WARN] GEMINI_API_KEY no configurada: usando respuestas de respaldo.")
-        return get_fallback_response(user_message)
+        return get_fallback_response(user_message, contexto)
 
     contents = build_gemini_contents(user_message, conversation_history)
     limite = time.monotonic() + LIMITE_TOTAL_SEGUNDOS
@@ -204,19 +331,21 @@ def get_gemini_response(user_message: str, conversation_history: list = None) ->
         for intento in range(MAX_INTENTOS_POR_MODELO):
             if time.monotonic() >= limite:
                 print("[CHATBOT ERROR] Se agotó el tiempo máximo esperando a Gemini.")
-                return get_fallback_response(user_message)
+                return get_fallback_response(user_message, contexto)
 
             # El primer intento desactiva el thinking; si el modelo no lo admite
             # (error 400) se reintenta sin ese campo.
             deshabilitar_thinking = intento == 0
             try:
-                texto, finish_reason = call_gemini(api_key, model, contents, deshabilitar_thinking)
+                texto, finish_reason = call_gemini(
+                    api_key, model, contents, deshabilitar_thinking, system_prompt
+                )
             except GeminiAPIError as e:
                 print(f"[CHATBOT ERROR] Gemini ({model}) intento {intento + 1}: {e}")
 
                 if e.es_clave_invalida or e.code in (401, 403):
                     print("[CHATBOT ERROR] GEMINI_API_KEY inválida o sin permisos: revisa el .env.")
-                    return get_fallback_response(user_message)
+                    return get_fallback_response(user_message, contexto)
 
                 if deshabilitar_thinking and e.es_error_de_thinking:
                     continue  # thinkingConfig no soportado por este modelo
@@ -247,33 +376,25 @@ def get_gemini_response(user_message: str, conversation_history: list = None) ->
             break
 
     print("[CHATBOT ERROR] Todos los modelos de Gemini fallaron: usando respuestas de respaldo.")
-    return get_fallback_response(user_message)
+    return get_fallback_response(user_message, contexto)
 
 
-def get_fallback_response(message: str) -> str:
+def _vuelos_relevantes(message: str, contexto: str) -> list:
+    """Líneas de vuelo del contexto que tienen relación con el mensaje."""
+    lineas = [l for l in (contexto or "").splitlines() if l.startswith("- ") and "→" in l]
+    if not lineas:
+        return []
+    palabras = {p for p in re.split(r"[^a-z0-9]+", normalizar(message)) if len(p) >= 4}
+    relevantes = [l for l in lineas if any(p in normalizar(l) for p in palabras)]
+    return (relevantes or lineas)[:3]
+
+
+def get_fallback_response(message: str, contexto: str = "") -> str:
     """Respuestas de fallback cuando la IA no está disponible."""
     message_lower = message.lower()
 
     if any(word in message_lower for word in ["hola", "buenos", "buenas", "saludos"]):
         return "¡Hola! Soy ExploraBot, el asistente virtual de ExploraTur. ¿En qué puedo ayudarte hoy?"
-
-    if any(word in message_lower for word in ["vuelo", "vuelos", "avion", "aéreo"]):
-        return "Ofrecemos vuelos nacionales e internacionales con las principales aerolíneas. ¿Te interesa algún destino en particular? Puedo orientarte sobre rutas y disponibilidad."
-
-    if any(word in message_lower for word in ["hotel", "hoteles", "alojamiento"]):
-        return "Trabajamos con hoteles en los principales destinos turísticos de Colombia. ¿Buscas alojamiento en alguna ciudad?"
-
-    if any(word in message_lower for word in ["precio", "costo", "valor", "cuanto"]):
-        return "Nuestros precios varían según el producto y servicio. Te recomiendo consultar nuestro catálogo de productos o contactar a nuestro equipo de ventas para una cotización personalizada."
-
-    if any(word in message_lower for word in ["pqr", "queja", "reclamo", "petición", "solicitud"]):
-        return "Puedo ayudarte a registrar tu PQR (Petición, Queja o Reclamo). Para mayor agilidad, te sugiero hacerlo desde la sección de PQR en tu panel de usuario, o contactar directamente a soporte@exploratur.com."
-
-    if any(word in message_lower for word in ["contacto", "teléfono", "email", "correo", "dirección"]):
-        return "Puedes contactarnos:\n- Teléfono: +57 300 123 4567\n- Email: info@exploratur.com\n- Dirección: Bogotá, Colombia\n- Horario: Lunes a Viernes 8am-6pm"
-
-    if any(word in message_lower for word in ["compra", "comprar", "reservar", "reserva"]):
-        return "Para realizar una compra, puedes explorar nuestros productos y servicios en el catálogo. Si necesitas ayuda, nuestro equipo está disponible para asistirte en el proceso."
 
     if any(word in message_lower for word in ["gracias", "muchas"]):
         return "¡De nada! Estoy aquí para ayudarte. ¿Hay algo más en lo que pueda asistirte?"
@@ -281,7 +402,25 @@ def get_fallback_response(message: str) -> str:
     if any(word in message_lower for word in ["adiós", "adios", "chao", "hasta"]):
         return "¡Hasta pronto! Gracias por contactar a ExploraTur. ¡Que tengas un excelente viaje!"
 
-    return "Gracias por tu mensaje. Puedo ayudarte con información sobre nuestros productos (vuelos, hoteles, paquetes, excursiones), procesos de compra, o recibir tus PQR. ¿En qué puedo asistirte?"
+    if any(word in message_lower for word in ["vuelo", "vuelos", "avion", "aéreo"]):
+        base = "Ofrecemos vuelos nacionales e internacionales con las principales aerolíneas."
+    elif any(word in message_lower for word in ["hotel", "hoteles", "alojamiento"]):
+        base = "Trabajamos con hoteles en los principales destinos turísticos de Colombia. ¿Buscas alojamiento en alguna ciudad?"
+    elif any(word in message_lower for word in ["precio", "costo", "valor", "cuanto"]):
+        base = "Nuestros precios varían según el producto y servicio. Te recomiendo consultar nuestro catálogo o contactar a nuestro equipo de ventas."
+    elif any(word in message_lower for word in ["pqr", "queja", "reclamo", "petición", "solicitud"]):
+        base = "Puedo ayudarte a registrar tu PQR (Petición, Queja o Reclamo). Para mayor agilidad, te sugiero hacerlo desde la sección de PQR en tu panel de usuario, o contactar directamente a soporte@exploratur.com."
+    elif any(word in message_lower for word in ["contacto", "teléfono", "email", "correo", "dirección"]):
+        base = "Puedes contactarnos:\n- Teléfono: +57 300 123 4567\n- Email: info@exploratur.com\n- Dirección: Bogotá, Colombia\n- Horario: Lunes a Viernes 8am-6pm"
+    elif any(word in message_lower for word in ["compra", "comprar", "reservar", "reserva"]):
+        base = "Para realizar una compra, puedes explorar nuestros productos y servicios en el catálogo. Si necesitas ayuda, nuestro equipo está disponible para asistirte en el proceso."
+    else:
+        base = "Puedo ayudarte con información sobre nuestros productos (vuelos, hoteles, paquetes, excursiones), procesos de compra, o recibir tus PQR. ¿En qué puedo asistirte?"
+
+    vuelos = _vuelos_relevantes(message, contexto)
+    if vuelos:
+        base += "\n\nVuelos que tenemos registrados ahora mismo:\n" + "\n".join(vuelos)
+    return base
 
 
 @router.post("")
@@ -323,7 +462,11 @@ def chat(data: ChatbotRequest, db: Session = Depends(get_db)):
     db.add(msg_user)
     db.commit()
 
-    respuesta_texto = get_gemini_response(data.mensaje, history)
+    # Datos reales de vuelos/productos/servicios para que el modelo responda
+    # con cifras exactas en vez de respuestas genéricas ("consulte con un asesor").
+    contexto = construir_contexto(db, data.mensaje)
+
+    respuesta_texto = get_gemini_response(data.mensaje, history, contexto)
 
     msg_assistant = Mensaje(
         conversacion_id=conversacion.id,
