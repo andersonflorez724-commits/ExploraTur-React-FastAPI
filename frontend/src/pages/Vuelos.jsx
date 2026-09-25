@@ -37,6 +37,35 @@ const formatDate = (date) =>
 
 const round2 = (n) => Math.round(n * 100) / 100
 
+// Quita tildes y pasa a minúsculas: "Bogotá" y "bogota" deben dar el mismo resultado
+const normalizar = (texto) =>
+  (texto ?? '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+// Filtra por origen/destino (ciudad o código IATA) y fecha, tolerando tildes
+const filtrarVuelos = (lista, s) => {
+  const origen = normalizar(s.origin)
+  const destino = normalizar(s.destination)
+  const fecha = (s.date || '').slice(0, 10)
+
+  return lista.filter((f) => {
+    const matchOrigin =
+      !origen ||
+      normalizar(f.origen).includes(origen) ||
+      normalizar(f.codigo_origen).includes(origen)
+    const matchDest =
+      !destino ||
+      normalizar(f.destino).includes(destino) ||
+      normalizar(f.codigo_destino).includes(destino)
+    const matchDate = !fecha || String(f.fecha ?? '').slice(0, 10) === fecha
+    return matchOrigin && matchDest && matchDate
+  })
+}
+
 // Descuento e impuestos del vuelo (mismos cálculos que el backend)
 const calcTotals = (flight, passengers) => {
   const bruto = Number(flight.precio) * Number(passengers)
@@ -117,19 +146,17 @@ function Vuelos() {
 
   const handleSearch = (e) => {
     e.preventDefault()
-    const q = (v) => v.trim().toLowerCase()
-    const filtered = flights.filter((f) => {
-      const matchOrigin = !q(search.origin) || f.origen.toLowerCase().includes(q(search.origin))
-      const matchDest = !q(search.destination) || f.destino.toLowerCase().includes(q(search.destination))
-      const matchDate = !search.date || f.fecha === search.date
-      return matchOrigin && matchDest && matchDate
-    })
-    setVisible(filtered)
+    setVisible(filtrarVuelos(flights, search))
   }
+
+  // Los resultados se recalculan al escribir o al cambiar los vuelos del servidor
+  useEffect(() => {
+    setVisible(filtrarVuelos(flights, search))
+  }, [flights, search])
 
   const resetSearch = () => {
     setSearch(INITIAL_SEARCH)
-    setVisible(flights)
+    setVisible(filtrarVuelos(flights, INITIAL_SEARCH))
   }
 
   const handleRefresh = () => {
